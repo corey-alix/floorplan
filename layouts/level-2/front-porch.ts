@@ -1,0 +1,26 @@
+export = {
+    title: "front-porch",
+    units: "feet",
+    righthand: "true",
+    route: [
+        "goto porch portal side 2",
+        "face street",
+        "rotate 180",
+        "move 1",
+        "rotate 90",
+        "move 18",
+        "rotate -90",
+        "move 3",
+        "rotate 90",
+        "move 2.5",
+        "jump 3",
+        "move 2.5",
+        "rotate 90",
+        "move 11",
+        "rotate 90",
+        "move 26",
+        "rotate 90",
+        "move 4",
+        "stop",        
+    ]    
+};

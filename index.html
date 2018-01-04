@@ -1,0 +1,45 @@
+<html>
+
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.5/require.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="index.css" />
+    <style>
+        @import url('https://cdnjs.cloudflare.com/ajax/libs/ol3/4.5.0/ol.css');
+    </style>
+</head>
+
+<body>
+    <app/>
+    <script>
+        var globals = {};
+        (function () {
+            function getParameterByName(name, url = window.location.href) {
+                name = name.replace(/[\[\]]/g, "\\$&");
+                var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+                    results = regex.exec(url);
+                if (!results) return null;
+                if (!results[2]) return '';
+                return decodeURIComponent(results[2].replace(/\+/g, " "));
+            }
+            let run = getParameterByName("run") || "index";
+            let debug = getParameterByName("debug") === "1";
+            requirejs.config({
+                // module name mapped to CDN url
+                paths: {
+                    "react": debug ? "https://unpkg.com/react@16.2.0/umd/react.development" : "https://unpkg.com/react@16.2.0/umd/react.production.min",
+                    "react-dom": debug ? "https://unpkg.com/react-dom@16.2.0/umd/react-dom.development" : "https://unpkg.com/react-dom@16.2.0/umd/react-dom.production.min",
+                    "openlayers": debug ? "https://cdnjs.cloudflare.com/ajax/libs/ol3/4.6.2/ol-debug" : "https://cdnjs.cloudflare.com/ajax/libs/ol3/4.6.2/ol",
+                    "material-ui": debug ? "https://unpkg.com/material-ui@1.0.0-beta.24/umd/material-ui.development" : "https://unpkg.com/material-ui@1.0.0-beta.24/umd/material-ui.production.min",
+                    "turf": debug ? "https://npmcdn.com/@turf/turf@5.1.6/turf" : "https://npmcdn.com/@turf/turf@5.1.6/turf.min"
+                },
+                deps: ["built/index"],
+                callback: function () {
+                    globals.debug = debug;
+                    require([run], function (go) { go() });
+                }
+            });
+        })();
+    </script>
+</body>
+
+</html>
