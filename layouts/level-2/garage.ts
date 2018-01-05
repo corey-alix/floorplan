@@ -33,6 +33,13 @@ export = {
         "rotate 90",
         "jump 4",
         "marker back-deck-portal",
-        "stop deck"
+        "stop deck",
+        "goto concave-corner-1",
+        "face street",
+        room({ width: 2, depth: 12 }),
+        "jump 1",
+        "rotate 90",
+        "jump 6",
+        "marker shelving"
     ])
 };

@@ -5,6 +5,7 @@ import kitchen = require("./kitchen");
 import livingroom = require("./livingroom");
 import dining = require("./dining");
 import schoolroom = require("./schoolroom");
+import walkway = require("./walkway");
 
 export = {
     title: "level-2",
@@ -63,6 +64,7 @@ export = {
         dining,
         livingroom,
         kitchen,
-        schoolroom
+        schoolroom,
+        walkway,
     ]
 };

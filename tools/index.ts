@@ -43,5 +43,22 @@ export function room(options = {
     result.push(`move ${options.depth}`);
     result.push("rotate 90");
     return result;
-
 }
+
+export function arc(options = {
+    segments: 6,
+    degrees: -90,
+    length: 20,
+}) {
+    let result = [];
+    let delta_angle = Math.round(10 * options.degrees / (options.segments - 1)) / 10;
+    let depth = Math.round(10 * options.length / options.segments) / 10;
+
+    for (let step = 0; step < options.segments; step++) {
+        result.push(`move ${depth}`);
+        result.push(`rotate ${delta_angle}`);
+    }
+
+    return result;
+}
+

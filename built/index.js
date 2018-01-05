@@ -240,6 +240,21 @@ define("tools/index", ["require", "exports"], function (require, exports) {
         return result;
     }
     exports.room = room;
+    function arc(options = {
+            segments: 6,
+            degrees: -90,
+            length: 20,
+        }) {
+        let result = [];
+        let delta_angle = Math.round(10 * options.degrees / (options.segments - 1)) / 10;
+        let depth = Math.round(10 * options.length / options.segments) / 10;
+        for (let step = 0; step < options.segments; step++) {
+            result.push(`move ${depth}`);
+            result.push(`rotate ${delta_angle}`);
+        }
+        return result;
+    }
+    exports.arc = arc;
 });
 define("layouts/level-2/garage", ["require", "exports", "tools/index"], function (require, exports, index_1) {
     "use strict";
@@ -276,7 +291,14 @@ define("layouts/level-2/garage", ["require", "exports", "tools/index"], function
             "rotate 90",
             "jump 4",
             "marker back-deck-portal",
-            "stop deck"
+            "stop deck",
+            "goto concave-corner-1",
+            "face street",
+            index_1.room({ width: 2, depth: 12 }),
+            "jump 1",
+            "rotate 90",
+            "jump 6",
+            "marker shelving"
         ])
     };
 });
@@ -298,18 +320,18 @@ define("layouts/level-2/front-porch", ["require", "exports", "tools/index"], fun
             "rotate 90",
             "jump 4",
             "marker front-door",
+            "goto convex-edge-01c",
+            "face street",
+            "jump 8",
             "rotate 90",
-            "jump 11",
-            "rotate 90",
-            "jump 4",
+            "jump 2",
             "rotate -90",
             index_2.staircase({
                 count: 3,
                 descend: 0.67,
                 depth: 0.67,
-                width: 7
+                width: 10
             }),
-            "stop",
         ])
     };
 });
@@ -433,7 +455,36 @@ define("layouts/level-2/schoolroom", ["require", "exports", "tools/index"], func
         ])
     };
 });
-define("layouts/level-2/index", ["require", "exports", "layouts/level-2/garage", "layouts/level-2/front-porch", "layouts/level-2/deck", "layouts/level-2/kitchen", "layouts/level-2/livingroom", "layouts/level-2/dining", "layouts/level-2/schoolroom"], function (require, exports, garage, porch, deck, kitchen, livingroom, dining, schoolroom) {
+define("layouts/level-2/walkway", ["require", "exports", "tools/index"], function (require, exports, index_8) {
+    "use strict";
+    return {
+        title: "walkway",
+        units: "feet",
+        righthand: "true",
+        route: index_8.flatten([
+            "goto garage-corner-1",
+            "face street",
+            "rotate -90",
+            "jump 20",
+            "push",
+            index_8.arc({
+                segments: 6,
+                degrees: -80,
+                length: 21,
+            }),
+            "pop",
+            "rotate 90",
+            "jump 10",
+            "rotate -90",
+            index_8.arc({
+                segments: 6,
+                degrees: -80,
+                length: 37,
+            }),
+        ])
+    };
+});
+define("layouts/level-2/index", ["require", "exports", "layouts/level-2/garage", "layouts/level-2/front-porch", "layouts/level-2/deck", "layouts/level-2/kitchen", "layouts/level-2/livingroom", "layouts/level-2/dining", "layouts/level-2/schoolroom", "layouts/level-2/walkway"], function (require, exports, garage, porch, deck, kitchen, livingroom, dining, schoolroom, walkway) {
     "use strict";
     return {
         title: "level-2",
@@ -492,7 +543,8 @@ define("layouts/level-2/index", ["require", "exports", "layouts/level-2/garage",
             dining,
             livingroom,
             kitchen,
-            schoolroom
+            schoolroom,
+            walkway,
         ]
     };
 });

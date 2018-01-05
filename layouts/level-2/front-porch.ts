@@ -16,17 +16,17 @@ export = {
         "rotate 90",
         "jump 4",
         "marker front-door",
+        "goto convex-edge-01c",
+        "face street",
+        "jump 8",
         "rotate 90",
-        "jump 11",
-        "rotate 90",
-        "jump 4",
+        "jump 2",
         "rotate -90",
         staircase({
             count: 3,
             descend: 0.67,
             depth: 0.67, 
-            width: 7
+            width: 10
         }),
-        "stop",
     ])
 };
