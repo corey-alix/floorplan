@@ -1,26 +1,32 @@
+import { flatten, room, staircase } from "../../tools/index";
+
 export = {
     title: "front-porch",
     units: "feet",
     righthand: "true",
-    route: [
-        "goto porch portal side 2",
+    route: flatten([
+        "goto convex-edge-01a",
         "face street",
-        "rotate 180",
-        "move 1",
-        "rotate 90",
-        "move 18",
         "rotate -90",
-        "move 3",
-        "rotate 90",
-        "move 2.5",
+        room({ width: 26, depth: 8 }),
+        "jump 18",
+        "rotate -90",
+        room({ width: 3, depth: 8 }),
         "jump 3",
-        "move 2.5",
         "rotate 90",
-        "move 11",
+        "jump 4",
+        "marker front-door",
         "rotate 90",
-        "move 26",
+        "jump 11",
         "rotate 90",
-        "move 4",
-        "stop",        
-    ]    
+        "jump 2",
+        "rotate -90",
+        staircase({
+            count: 3,
+            descend: 0.67,
+            depth: 0.67, 
+            width: 4
+        }),
+        "stop",
+    ])
 };

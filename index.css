@@ -1,0 +1,7 @@
+html, body {
+    background: rgb(20, 20, 20);
+}
+
+.ol-control button {
+    background-color: rgba(20,20,20,.5) !important;
+}

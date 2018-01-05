@@ -1,13 +1,15 @@
-import { flatten, staircase as steps } from "../../tools/index";
+import { flatten, room, staircase } from "../../tools/index";
 
 export = {
     title: "back-deck-upper",
     units: "feet",
     righthand: "true",
     route: flatten([
-        "goto back-deck portal side 1",
+        "goto back-deck-portal",
         "face street",
-        "rotate 180",
+        "rotate -90",
+        "jump 4",
+        "rotate -90",
         "move 9",
         "rotate 90",
         "move 37.83",
@@ -27,18 +29,17 @@ export = {
         "goto staircase side 1",
         "face street",
         "rotate -90",
-        steps(),
+        staircase(),
         "descend 0.67",
-        "move 6",
-        "marker platform",
         "rotate -90",
-        "move 8",
+        room({width: 8, depth: 6}),
+        "jump 8",
         "rotate -90",
-        "move 6",
-        steps(),
+        staircase(),
         "descend 0.67",
-        "move 0.67",
-        "marker ground level",
+        "rotate 90",
+        "jump 4",
+        "marker parking",
         "stop"
     ])
 };

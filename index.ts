@@ -2,6 +2,11 @@ import ol = require("openlayers");
 import renderer = require("./render");
 import level_2 = require("./layouts/level-2/index");
 
+const marker_color = ol.color.asString([20, 240, 20, 1]);
+const line_color = ol.color.asString([160, 160, 160, 1]);
+const text_color = ol.color.asString([200, 200, 200, 1]);
+const wall_width = 3;
+
 let go = () => {
 
     let mapDiv = document.createElement("div");
@@ -20,24 +25,36 @@ let go = () => {
                             image: new ol.style.Circle({
                                 radius: 3,
                                 fill: new ol.style.Fill({
-                                    color: [0, 0, 0, 1],
+                                    color: marker_color,
                                 }),
                             }),
-                            text: new ol.style.Text({
+                            text: res > 0.08 ? null : new ol.style.Text({
                                 text: feature.get("name"),
                                 offsetX: 0,
                                 offsetY: -10,
+                                scale: 1.2,
+                                fill: new ol.style.Stroke({
+                                    color: text_color,
+                                })
                             })
                         });
                     default:
                         return new ol.style.Style({
                             stroke: new ol.style.Stroke({
-                                color: [0, 0, 0, 1],
+                                color: line_color,
+                                width: wall_width,
                             }),
-                            text: new ol.style.Text({
+                            text: res > 0.04 ? undefined : new ol.style.Text({
                                 text: feature.get("name"),
-                                offsetY: 8,
+                                offsetY: 12,
                                 rotation: rotation,
+                                scale: 1.5,
+                                stroke: new ol.style.Stroke({
+                                    color: line_color,
+                                }),
+                                fill: new ol.style.Stroke({
+                                    color: text_color,
+                                }),
                             })
                         });
                 }
@@ -52,6 +69,7 @@ let go = () => {
             center: [0, 0],
             zoom: 20,
         }),
+        controls: ol.control.defaults({attribution: false})
     });
 
     [level_2].forEach(shape => {

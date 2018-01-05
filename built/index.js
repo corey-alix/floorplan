@@ -10,6 +10,7 @@ define("render", ["require", "exports", "openlayers"], function (require, export
                         name: "origin",
                         point: new ol.geom.Point([0, 0]),
                     }],
+                stack: [],
                 rightHandRule: false,
                 orientations: [
                     {
@@ -70,11 +71,32 @@ define("render", ["require", "exports", "openlayers"], function (require, export
                     case "stop":
                         this.stop(tokens);
                         break;
+                    case "push":
+                        this.push(tokens);
+                        break;
+                    case "pop":
+                        this.pop(tokens);
+                        break;
                     default: console.warn(`cannot process ${command}: ${tokens}`);
                 }
             });
             source.routes && source.routes.forEach(source => this.render(source, this.features));
             return this.features;
+        }
+        push(location) {
+            console.log("push", location);
+            this.state.stack.push({
+                position: this.state.position,
+                direction: this.state.direction,
+                elevation: this.state.elevation,
+            });
+        }
+        pop(location) {
+            console.log("pop", location);
+            let data = this.state.stack.pop();
+            this.state.position = data.position;
+            this.state.direction = data.direction;
+            this.state.elevation = data.elevation;
         }
         getLocation(location) {
             let key = location.join(" ");
@@ -168,77 +190,6 @@ define("render", ["require", "exports", "openlayers"], function (require, export
     var renderer = new Renderer();
     return renderer;
 });
-define("layouts/level-2/garage", ["require", "exports"], function (require, exports) {
-    "use strict";
-    return {
-        title: "garage",
-        units: "feet",
-        righthand: "true",
-        start: "telephone-pole",
-        route: [
-            "face street",
-            "rotate -90",
-            "jump 9",
-            "rotate -90",
-            "decend 3",
-            "jump 36",
-            "marker garage door side 1",
-            "rotate 90",
-            "move 20",
-            "marker garage door side 2",
-            "rotate -90",
-            "move 18",
-            "marker porch portal side 1",
-            "jump 3",
-            "marker porch portal side 2",
-            "move 4",
-            "marker connect to house",
-            "rotate -90",
-            "move 12",
-            "rotate 90",
-            "marker deck portal side 1",
-            "move 19",
-            "marker back-deck portal side 1",
-            "rotate -90",
-            "move 8",
-            "marker back-deck portal side 2",
-            "rotate -90",
-            "move 19",
-            "marker deck portal side 2",
-            "move 25",
-            "stop",
-        ]
-    };
-});
-define("layouts/level-2/front-porch", ["require", "exports"], function (require, exports) {
-    "use strict";
-    return {
-        title: "front-porch",
-        units: "feet",
-        righthand: "true",
-        route: [
-            "goto porch portal side 2",
-            "face street",
-            "rotate 180",
-            "move 1",
-            "rotate 90",
-            "move 18",
-            "rotate -90",
-            "move 3",
-            "rotate 90",
-            "move 2.5",
-            "jump 3",
-            "move 2.5",
-            "rotate 90",
-            "move 11",
-            "rotate 90",
-            "move 26",
-            "rotate 90",
-            "move 4",
-            "stop",
-        ]
-    };
-});
 define("tools/index", ["require", "exports"], function (require, exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -290,16 +241,90 @@ define("tools/index", ["require", "exports"], function (require, exports) {
     }
     exports.room = room;
 });
-define("layouts/level-2/deck", ["require", "exports", "tools/index"], function (require, exports, index_1) {
+define("layouts/level-2/garage", ["require", "exports", "tools/index"], function (require, exports, index_1) {
+    "use strict";
+    return {
+        title: "garage",
+        units: "feet",
+        righthand: "true",
+        route: index_1.flatten([
+            "goto garage-corner-1",
+            "face street",
+            "rotate 180",
+            index_1.room({ width: 25, depth: 20 }),
+            "push",
+            "rotate 90",
+            "jump 10",
+            "marker 16' garage door",
+            "pop",
+            "jump 25",
+            "rotate 90",
+            "jump 20",
+            "rotate 90",
+            "jump 3",
+            "marker convex-edge-01a",
+            "jump 4",
+            "marker garage-porch-portal",
+            "stop garage",
+            "goto convex-corner-01",
+            "face street",
+            "rotate 90",
+            "jump 8",
+            "rotate 90",
+            index_1.room({ width: 19, depth: 8 }),
+            "jump 19",
+            "rotate 90",
+            "jump 4",
+            "marker back-deck-portal",
+            "stop deck"
+        ])
+    };
+});
+define("layouts/level-2/front-porch", ["require", "exports", "tools/index"], function (require, exports, index_2) {
+    "use strict";
+    return {
+        title: "front-porch",
+        units: "feet",
+        righthand: "true",
+        route: index_2.flatten([
+            "goto convex-edge-01a",
+            "face street",
+            "rotate -90",
+            index_2.room({ width: 26, depth: 8 }),
+            "jump 18",
+            "rotate -90",
+            index_2.room({ width: 3, depth: 8 }),
+            "jump 3",
+            "rotate 90",
+            "jump 4",
+            "marker front-door",
+            "rotate 90",
+            "jump 11",
+            "rotate 90",
+            "jump 2",
+            "rotate -90",
+            index_2.staircase({
+                count: 3,
+                descend: 0.67,
+                depth: 0.67,
+                width: 4
+            }),
+            "stop",
+        ])
+    };
+});
+define("layouts/level-2/deck", ["require", "exports", "tools/index"], function (require, exports, index_3) {
     "use strict";
     return {
         title: "back-deck-upper",
         units: "feet",
         righthand: "true",
-        route: index_1.flatten([
-            "goto back-deck portal side 1",
+        route: index_3.flatten([
+            "goto back-deck-portal",
             "face street",
-            "rotate 180",
+            "rotate -90",
+            "jump 4",
+            "rotate -90",
             "move 9",
             "rotate 90",
             "move 37.83",
@@ -319,124 +344,105 @@ define("layouts/level-2/deck", ["require", "exports", "tools/index"], function (
             "goto staircase side 1",
             "face street",
             "rotate -90",
-            index_1.staircase(),
+            index_3.staircase(),
             "descend 0.67",
-            "move 6",
-            "marker platform",
             "rotate -90",
-            "move 8",
+            index_3.room({ width: 8, depth: 6 }),
+            "jump 8",
             "rotate -90",
-            "move 6",
-            index_1.staircase(),
+            index_3.staircase(),
             "descend 0.67",
-            "move 0.67",
-            "marker ground level",
+            "rotate 90",
+            "jump 4",
+            "marker parking",
             "stop"
         ])
     };
 });
-define("layouts/level-2/kitchen", ["require", "exports", "tools/index"], function (require, exports, index_2) {
+define("layouts/level-2/kitchen", ["require", "exports", "tools/index"], function (require, exports, index_4) {
     "use strict";
     return {
         title: "kitchen",
         units: "feet",
         righthand: "true",
-        route: index_2.flatten([
-            "goto dining portal-1",
+        route: index_4.flatten([
+            "goto dining-kitchen-portal",
             "face street",
             "rotate 90",
-            "move 5.33",
+            "jump 5.33",
             "rotate 90",
-            "move 13",
+            index_4.room({ width: 13, depth: 17.83 }),
             "rotate 90",
-            "move 17.83",
-            "rotate 90",
-            "move 13",
-            "marker kitchen pantry",
-            "rotate 90",
-            "move 9.5",
-            "stop kitchen",
+            "jump 17.83",
+            "rotate -90",
+            "jump 1.33",
+            "marker kitchen-school-portal",
+            "stop",
         ])
     };
 });
-define("layouts/level-2/livingroom", ["require", "exports", "tools/index"], function (require, exports, index_3) {
+define("layouts/level-2/livingroom", ["require", "exports", "tools/index"], function (require, exports, index_5) {
     "use strict";
     return {
-        title: "kitchen",
+        title: "living room",
         units: "feet",
         righthand: "true",
-        route: index_3.flatten([
-            "goto deck portal side 1",
-            "rotate 180",
+        route: index_5.flatten([
+            "goto convex-corner-01",
+            "face street",
+            "rotate -90",
             "jump 12",
             "rotate 90",
             "jump 3",
-            "rotate -90",
-            "move 18",
-            "rotate -90",
-            "move 3.5",
-            "jump 4",
-            "move 6.5",
-            "rotate -90",
-            "move 8.5",
+            "rotate 180",
+            index_5.room({
+                width: 14,
+                depth: 18
+            }),
+            "jump 14",
+            "rotate 90",
+            "jump 9",
             "marker fireplace-3",
-            "move 9.5",
-            "rotate -90",
-            "move 3.5",
-            "jump 4",
-            "move 6.5",
-            "stop living room",
+            "stop",
         ])
     };
 });
-define("layouts/level-2/dining", ["require", "exports"], function (require, exports) {
+define("layouts/level-2/dining", ["require", "exports", "tools/index"], function (require, exports, index_6) {
     "use strict";
     return {
         title: "level-2",
         units: "feet",
         righthand: "true",
-        start: "deck portal side 1",
-        route: [
+        route: index_6.flatten([
+            "goto convex-corner-01",
             "face street",
             "rotate 180",
-            "move 14.5",
+            index_6.room({ width: 14.5, depth: 12 }),
+            "jump 14.5",
             "rotate 90",
-            "move 5.33",
-            "marker dining portal-1",
-            "jump 3",
-            "marker dining portal-2",
-            "move 3.66",
-            "rotate 90",
-            "move 7.5",
-            "jump 4",
-            "move 3",
-            "rotate 90",
-            "move 12",
+            "jump 5.33",
+            "marker dining-kitchen-portal",
             "stop dining room",
-        ]
+        ])
     };
 });
-define("layouts/level-2/schoolroom", ["require", "exports"], function (require, exports) {
+define("layouts/level-2/schoolroom", ["require", "exports", "tools/index"], function (require, exports, index_7) {
     "use strict";
     return {
         title: "schoolroom",
         units: "feet",
         righthand: "true",
-        route: [
-            "goto kitchen pantry",
+        route: index_7.flatten([
+            "goto kitchen-school-portal",
             "face street",
+            "jump 1.33",
             "rotate 180",
-            "move 13",
+            index_7.room({ width: 13, depth: 20 }),
             "rotate 90",
-            "move 20",
-            "rotate 90",
-            "move 13",
-            "rotate 90",
-            "move 11",
+            "jump 9",
             "marker fireplace-2",
-            "move 9",
             "stop schoolroom",
-        ]
+        ])
     };
 });
 define("layouts/level-2/index", ["require", "exports", "layouts/level-2/garage", "layouts/level-2/front-porch", "layouts/level-2/deck", "layouts/level-2/kitchen", "layouts/level-2/livingroom", "layouts/level-2/dining", "layouts/level-2/schoolroom"], function (require, exports, garage, porch, deck, kitchen, livingroom, dining, schoolroom) {
@@ -453,6 +459,39 @@ define("layouts/level-2/index", ["require", "exports", "layouts/level-2/garage",
                 name: "street",
                 direction: 180
             }],
+        route: [
+            "goto telephone-pole",
+            "face street",
+            "rotate -90",
+            "jump 9",
+            "rotate -90",
+            "decend 3",
+            "jump 36",
+            "marker garage-corner-1",
+            "jump 25",
+            "rotate 90",
+            "move 4",
+            "marker garage-deck-portal",
+            "move 4",
+            "marker convex-corner-01",
+            "push",
+            "jump 12",
+            "marker concave-corner-1",
+            "pop",
+            "rotate -90",
+            "jump 28.5",
+            "marker house-corner-2",
+            "rotate 90",
+            "jump 64.75",
+            "marker house-corner-3",
+            "rotate 90",
+            "jump 35",
+            "marker house-corner-4",
+            "rotate 90",
+            "jump 26.75",
+            "marker convex-edge-01b",
+            "stop"
+        ],
         routes: [
             garage,
             porch,
@@ -466,6 +505,10 @@ define("layouts/level-2/index", ["require", "exports", "layouts/level-2/garage",
 });
 define("index", ["require", "exports", "openlayers", "render", "layouts/level-2/index"], function (require, exports, ol, renderer, level_2) {
     "use strict";
+    const marker_color = ol.color.asString([20, 240, 20, 1]);
+    const line_color = ol.color.asString([160, 160, 160, 1]);
+    const text_color = ol.color.asString([200, 200, 200, 1]);
+    const wall_width = 3;
     let go = () => {
         let mapDiv = document.createElement("div");
         document.body.appendChild(mapDiv);
@@ -480,24 +523,36 @@ define("index", ["require", "exports", "openlayers", "render", "layouts/level-2/
                             image: new ol.style.Circle({
                                 radius: 3,
                                 fill: new ol.style.Fill({
-                                    color: [0, 0, 0, 1],
+                                    color: marker_color,
                                 }),
                             }),
-                            text: new ol.style.Text({
+                            text: res > 0.08 ? null : new ol.style.Text({
                                 text: feature.get("name"),
                                 offsetX: 0,
                                 offsetY: -10,
+                                scale: 1.2,
+                                fill: new ol.style.Stroke({
+                                    color: text_color,
+                                })
                             })
                         });
                     default:
                         return new ol.style.Style({
                             stroke: new ol.style.Stroke({
-                                color: [0, 0, 0, 1],
+                                color: line_color,
+                                width: wall_width,
                             }),
-                            text: new ol.style.Text({
+                            text: res > 0.04 ? undefined : new ol.style.Text({
                                 text: feature.get("name"),
-                                offsetY: 8,
+                                offsetY: 12,
                                 rotation: rotation,
+                                scale: 1.5,
+                                stroke: new ol.style.Stroke({
+                                    color: line_color,
+                                }),
+                                fill: new ol.style.Stroke({
+                                    color: text_color,
+                                }),
                             })
                         });
                 }
@@ -510,6 +565,7 @@ define("index", ["require", "exports", "openlayers", "render", "layouts/level-2/
                 center: [0, 0],
                 zoom: 20,
             }),
+            controls: ol.control.defaults({ attribution: false })
         });
         [level_2].forEach(shape => {
             let features = renderer.render(shape);

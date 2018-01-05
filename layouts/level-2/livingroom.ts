@@ -1,29 +1,25 @@
 import { flatten, room } from "../../tools/index";
 
 export = {
-    title: "kitchen",
+    title: "living room",
     units: "feet",
     righthand: "true",
     route: flatten([
-        "goto deck portal side 1",
-        "rotate 180",
+        "goto convex-corner-01",
+        "face street",
+        "rotate -90",
         "jump 12",
         "rotate 90",
         "jump 3",
-        "rotate -90",
-        "move 18",
-        "rotate -90",
-        "move 3.5",
-        "jump 4",
-        "move 6.5",
-        "rotate -90",
-        "move 8.5",
+        "rotate 180",
+        room({
+            width: 14,
+            depth: 18
+        }),
+        "jump 14",
+        "rotate 90",
+        "jump 9",
         "marker fireplace-3",
-        "move 9.5",
-        "rotate -90",
-        "move 3.5",
-        "jump 4",
-        "move 6.5",
-        "stop living room",
+        "stop",
     ])
 };

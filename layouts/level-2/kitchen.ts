@@ -1,23 +1,21 @@
-import { flatten, staircase as steps, room } from "../../tools/index";
+import { flatten, room } from "../../tools/index";
 
 export = {
     title: "kitchen",
     units: "feet",
     righthand: "true",
     route: flatten([
-        "goto dining portal-1",
+        "goto dining-kitchen-portal",
         "face street",
         "rotate 90",
-        "move 5.33",
+        "jump 5.33",
         "rotate 90",
-        "move 13",
+        room({width: 13, depth: 17.83}),
         "rotate 90",
-        "move 17.83",
-        "rotate 90",
-        "move 13",
-        "marker kitchen pantry",
-        "rotate 90",
-        "move 9.5",
-        "stop kitchen",
+        "jump 17.83",
+        "rotate -90",
+        "jump 1.33",
+        "marker kitchen-school-portal",
+        "stop",
     ])
 };

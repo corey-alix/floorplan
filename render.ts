@@ -22,6 +22,11 @@ class Renderer {
             name: "origin",
             point: new ol.geom.Point([0, 0]),
         }],
+        stack: <Array<{
+            position: any;
+            direction: any;
+            elevation: any;
+        }>>[],
         rightHandRule: false,
         orientations: [
             {
@@ -66,6 +71,8 @@ class Renderer {
                 case "marker": this.marker(tokens); break;
                 case "move": this.move(tokens); break;
                 case "stop": this.stop(tokens); break;
+                case "push": this.push(tokens); break;
+                case "pop": this.pop(tokens); break;
                 default: console.warn(`cannot process ${command}: ${tokens}`);
             }
         });
@@ -73,6 +80,23 @@ class Renderer {
         source.routes && source.routes.forEach(source => this.render(source, this.features));
 
         return this.features;
+    }
+
+    private push(location: string[]) {
+        console.log("push", location);
+        this.state.stack.push({
+            position: this.state.position,
+            direction: this.state.direction,
+            elevation: this.state.elevation,
+        });
+    }
+
+    private pop(location: string[]) {
+        console.log("pop", location);
+        let data = this.state.stack.pop();
+        this.state.position = data.position;
+        this.state.direction = data.direction;
+        this.state.elevation = data.elevation;
     }
 
     private getLocation(location: string[]) {
@@ -89,14 +113,14 @@ class Renderer {
         return result && result.direction;
     }
 
-    addPlace(name: string, location: [number, number]) {
+    private addPlace(name: string, location: [number, number]) {
         this.state.locations.push({
             name: name,
             point: new ol.geom.Point(location)
         });
     }
 
-    addDirection(name: string, direction: number) {
+    private addDirection(name: string, direction: number) {
         this.state.orientations.push({
             name: name,
             direction: direction
