@@ -25,7 +25,7 @@ let go = () => {
                             image: new ol.style.Circle({
                                 radius: 3,
                                 fill: new ol.style.Fill({
-                                    color: marker_color,
+                                    color: marker_color
                                 }),
                             }),
                             text: res > 0.08 ? null : new ol.style.Text({
@@ -33,9 +33,12 @@ let go = () => {
                                 offsetX: 0,
                                 offsetY: -10,
                                 scale: 1.2,
-                                fill: new ol.style.Stroke({
-                                    color: text_color,
-                                })
+                                stroke: new ol.style.Stroke({
+                                    color: line_color
+                                }),
+                                fill: new ol.style.Fill({
+                                    color: text_color
+                                }),
                             })
                         });
                     default:
@@ -52,7 +55,7 @@ let go = () => {
                                 stroke: new ol.style.Stroke({
                                     color: line_color,
                                 }),
-                                fill: new ol.style.Stroke({
+                                fill: new ol.style.Fill({
                                     color: text_color,
                                 }),
                             })

@@ -5,21 +5,16 @@ export = {
     units: "feet",
     righthand: "true",
     route: flatten([
-        "goto convex-corner-01",
+        "goto convex-edge-01a",
         "face street",
-        "rotate -90",
-        "jump 12",
-        "rotate 90",
-        "jump 3",
         "rotate 180",
         room({
             width: 14,
-            depth: 18
+            depth: 17
         }),
         "jump 14",
         "rotate 90",
         "jump 9",
         "marker fireplace-3",
-        "stop",
     ])
 };

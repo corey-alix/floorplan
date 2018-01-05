@@ -290,10 +290,10 @@ define("layouts/level-2/front-porch", ["require", "exports", "tools/index"], fun
             "goto convex-edge-01a",
             "face street",
             "rotate -90",
-            index_2.room({ width: 26, depth: 8 }),
+            index_2.room({ width: 25, depth: 8 }),
             "jump 18",
             "rotate -90",
-            index_2.room({ width: 3, depth: 8 }),
+            index_2.room({ width: 3, depth: 7 }),
             "jump 3",
             "rotate 90",
             "jump 4",
@@ -301,13 +301,13 @@ define("layouts/level-2/front-porch", ["require", "exports", "tools/index"], fun
             "rotate 90",
             "jump 11",
             "rotate 90",
-            "jump 2",
+            "jump 4",
             "rotate -90",
             index_2.staircase({
                 count: 3,
                 descend: 0.67,
                 depth: 0.67,
-                width: 4
+                width: 7
             }),
             "stop",
         ])
@@ -322,28 +322,16 @@ define("layouts/level-2/deck", ["require", "exports", "tools/index"], function (
         route: index_3.flatten([
             "goto back-deck-portal",
             "face street",
-            "rotate -90",
-            "jump 4",
-            "rotate -90",
-            "move 9",
             "rotate 90",
-            "move 37.83",
-            "marker staircase side 1",
-            "rotate -90",
-            "move 8",
-            "marker staircase side 2",
-            "rotate -90",
-            "move 37.83",
-            "move 8",
-            "rotate -90",
-            "move 8",
-            "move 9",
-            "rotate -90",
-            "move 8",
-            "stop",
-            "goto staircase side 1",
+            "jump 4",
+            "rotate 90",
+            index_3.room({ width: 17.5, depth: 8 }),
+            "goto house-corner-2",
             "face street",
-            "rotate -90",
+            "rotate 180",
+            index_3.room({ width: 8, depth: 37.83 }),
+            "rotate 90",
+            "jump 37.83",
             index_3.staircase(),
             "descend 0.67",
             "rotate -90",
@@ -366,18 +354,18 @@ define("layouts/level-2/kitchen", ["require", "exports", "tools/index"], functio
         units: "feet",
         righthand: "true",
         route: index_4.flatten([
-            "goto dining-kitchen-portal",
+            "goto house-corner-2",
             "face street",
-            "rotate 90",
-            "jump 5.33",
-            "rotate 90",
-            index_4.room({ width: 13, depth: 17.83 }),
-            "rotate 90",
-            "jump 17.83",
+            "push",
+            "jump 11.75",
+            "marker kitchen-garage-portal",
+            "pop",
             "rotate -90",
-            "jump 1.33",
+            index_4.room({ width: 17.83, depth: 13 }),
+            "jump 17.83",
+            "rotate 90",
+            "jump 11.67",
             "marker kitchen-school-portal",
-            "stop",
         ])
     };
 });
@@ -388,22 +376,17 @@ define("layouts/level-2/livingroom", ["require", "exports", "tools/index"], func
         units: "feet",
         righthand: "true",
         route: index_5.flatten([
-            "goto convex-corner-01",
+            "goto convex-edge-01a",
             "face street",
-            "rotate -90",
-            "jump 12",
-            "rotate 90",
-            "jump 3",
             "rotate 180",
             index_5.room({
                 width: 14,
-                depth: 18
+                depth: 17
             }),
             "jump 14",
             "rotate 90",
             "jump 9",
             "marker fireplace-3",
-            "stop",
         ])
     };
 });
@@ -433,15 +416,20 @@ define("layouts/level-2/schoolroom", ["require", "exports", "tools/index"], func
         units: "feet",
         righthand: "true",
         route: index_7.flatten([
-            "goto kitchen-school-portal",
+            "goto house-corner-2",
             "face street",
-            "jump 1.33",
-            "rotate 180",
-            index_7.room({ width: 13, depth: 20 }),
+            "rotate -90",
+            "jump 18",
+            index_7.room({ width: 19.75, depth: 13 }),
+            "push",
+            "jump 1.25",
+            "marker school-deck-portal",
+            "pop",
             "rotate 90",
+            "jump 13",
+            "rotate -90",
             "jump 9",
             "marker fireplace-2",
-            "stop schoolroom",
         ])
     };
 });
@@ -482,14 +470,19 @@ define("layouts/level-2/index", ["require", "exports", "layouts/level-2/garage",
             "jump 28.5",
             "marker house-corner-2",
             "rotate 90",
-            "jump 64.75",
+            "jump 63.75",
             "marker house-corner-3",
             "rotate 90",
-            "jump 35",
+            "jump 34",
             "marker house-corner-4",
             "rotate 90",
             "jump 26.75",
             "marker convex-edge-01b",
+            "rotate 90",
+            "jump 2.5",
+            "rotate -90",
+            "jump 8",
+            "marker convex-edge-01c",
             "stop"
         ],
         routes: [
@@ -523,7 +516,7 @@ define("index", ["require", "exports", "openlayers", "render", "layouts/level-2/
                             image: new ol.style.Circle({
                                 radius: 3,
                                 fill: new ol.style.Fill({
-                                    color: marker_color,
+                                    color: marker_color
                                 }),
                             }),
                             text: res > 0.08 ? null : new ol.style.Text({
@@ -531,9 +524,12 @@ define("index", ["require", "exports", "openlayers", "render", "layouts/level-2/
                                 offsetX: 0,
                                 offsetY: -10,
                                 scale: 1.2,
-                                fill: new ol.style.Stroke({
-                                    color: text_color,
-                                })
+                                stroke: new ol.style.Stroke({
+                                    color: line_color
+                                }),
+                                fill: new ol.style.Fill({
+                                    color: text_color
+                                }),
                             })
                         });
                     default:
@@ -550,7 +546,7 @@ define("index", ["require", "exports", "openlayers", "render", "layouts/level-2/
                                 stroke: new ol.style.Stroke({
                                     color: line_color,
                                 }),
-                                fill: new ol.style.Stroke({
+                                fill: new ol.style.Fill({
                                     color: text_color,
                                 }),
                             })
