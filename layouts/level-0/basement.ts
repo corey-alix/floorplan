@@ -1,0 +1,35 @@
+import { flatten, room } from "../../tools/index";
+
+export = {
+    title: "basement",
+    units: "feet",
+    righthand: "true",
+    route: flatten([
+        "goto telephone-pole",
+        "face street",
+        "rotate -90",
+        "jump 9",
+        "rotate -90",
+        "descend 3",
+        "jump 36",
+        "jump 25",
+        "left 8",
+        "descend 16",
+        room({ width: 27, depth: 11, title: "garage-single" }),
+        "left 11.5",
+        "back 4",
+        room({ width: 14, depth: 18, title: "utility-room" }),
+        "forward 14",
+        "left 6.67",
+        room({ width: 3.75, depth: 11.17, title: "fireplace" }),
+        "left 11.83",
+        "back 14",
+        room({ width: 10.5, depth: 7, title: "laundry-room" }),
+        "forward 11",
+        "right 18.5",
+        room({ width: 19.5, depth: 25.3, title: "basement" }),
+        "forward 19.5",
+        "left 25.3",
+        "marker basement-corner-1",
+  ])
+};

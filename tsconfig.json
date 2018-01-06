@@ -3,5 +3,8 @@
         "module": "amd",
         "target": "es2015",
         "outFile": "built/index.js",
+        "baseUrl": "./bower_components",
+        "moduleResolution": "node",
+        "noImplicitAny": true,
     }
 }

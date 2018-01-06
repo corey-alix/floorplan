@@ -31,9 +31,11 @@ export function staircase(options = {
 export function room(options = {
     width: 12,
     depth: 8,
+    title: "",
 }) {
     let result = [];
     
+    result.push(`marker ${options.title}`);
     result.push(`move ${options.width}`);
     result.push("rotate 90");
     result.push(`move ${options.depth}`);
@@ -55,6 +57,7 @@ export function arc(options = {
     let depth = Math.round(10 * options.length / options.segments) / 10;
 
     for (let step = 0; step < options.segments; step++) {
+        step > 0 && result.push(`marker ${Math.abs(delta_angle)}°`);
         result.push(`move ${depth}`);
         result.push(`rotate ${delta_angle}`);
     }

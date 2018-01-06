@@ -1,5 +1,9 @@
 import ol = require("openlayers");
 import renderer = require("./render");
+import { LayerSwitcher } from "ol3-layerswitcher";
+
+import level_0 = require("./layouts/level-0/index");
+import level_1 = require("./layouts/level-1/index");
 import level_2 = require("./layouts/level-2/index");
 
 const marker_color = ol.color.asString([20, 240, 20, 1]);
@@ -7,13 +11,18 @@ const line_color = ol.color.asString([160, 160, 160, 1]);
 const text_color = ol.color.asString([200, 200, 200, 1]);
 const wall_width = 3;
 
-let go = () => {
+class App {
 
-    let mapDiv = document.createElement("div");
-    document.body.appendChild(mapDiv);
-    let source = new ol.source.Vector();
-    let layer = new ol.layer.Vector(
-        {
+    private layers: ol.layer.Vector[];
+
+    private forceLayer(map: ol.Map, level: number) {
+
+        if (!this.layers) this.layers = [];
+        if (this.layers[level]) return this.layers[level];
+
+        let source = new ol.source.Vector();
+        let layer = new ol.layer.Vector({
+            title: `level ${level}`,
             source: source,
             style: (feature: ol.Feature, res: number) => {
 
@@ -62,23 +71,53 @@ let go = () => {
                         });
                 }
             }
-        }
-    );
+        });
 
-    let map = new ol.Map({
-        target: mapDiv,
-        layers: [layer],
-        view: new ol.View({
-            center: [0, 0],
-            zoom: 20,
-        }),
-        controls: ol.control.defaults({attribution: false})
-    });
+        this.layers[level] = layer;
+        map.addLayer(layer);
+        return layer;
+    }
 
-    [level_2].forEach(shape => {
-        let features = renderer.render(shape);
-        source.addFeatures(features);
-    });
-};
+    run() {
+        let mapDiv = document.createElement("div");
+        document.body.appendChild(mapDiv);
+
+        let map = new ol.Map({
+            target: mapDiv,
+            view: new ol.View({
+                center: [0, 0],
+                zoom: 20,
+            }),
+            controls: ol.control.defaults({ attribution: false })
+        });
+
+        [level_0, level_1, level_2].forEach((level, i) => {
+            let features = renderer.render(level);
+            this.forceLayer(map, i).getSource().addFeatures(features);
+        });
+
+        let layerSwitcher = new LayerSwitcher({
+            tipLabel: 'Layers',
+            openOnMouseOver: false,
+            closeOnMouseOut: false,
+            openOnClick: true,
+            closeOnClick: true,
+            target: null
+        });
+
+        layerSwitcher.on("show-layer", (args: { layer: ol.layer.Base }) => {
+            console.log("show layer:", args.layer.get("title"));
+        });
+
+        layerSwitcher.on("hide-layer", (args: { layer: ol.layer.Base }) => {
+            console.log("hide layer:", args.layer.get("title"));
+        });
+
+        map.addControl(layerSwitcher);
+    };
+
+}
+
+let go = () => new App().run();
 
 export = go;

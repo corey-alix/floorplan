@@ -1,0 +1,7 @@
+{
+  "name": "3d-house",
+  "dependencies": {},
+  "globalDependencies": {
+    "ol3-layerswitcher": "github:ca0v/ol3-layerswitcher/built/index.d.ts#v4.0.2"
+  }
+}

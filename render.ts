@@ -51,7 +51,7 @@ class Renderer {
     render(source: Layout, features = []) {
 
         this.features = features;
-        this.state.rightHandRule = "true" === source.righthand;
+        this.state.rightHandRule = "false" !== source.righthand;
 
         if (source.directions) source.directions.forEach(d => this.addDirection(d.name, d.direction));
         if (source.places) source.places.forEach(d => this.addPlace(d.name, d.location));
@@ -62,11 +62,15 @@ class Renderer {
             let tokens = route.split(" ");
             let command = tokens.shift();
             switch (command) {
+                case "back": this.back(tokens); break;
                 case "ascend": this.ascend(tokens); break;
                 case "descend": this.descend(tokens); break;
                 case "face": this.face(tokens); break;
-                case "jump": this.jump(tokens); break;
+                case "forward": this.forward(tokens); break;
                 case "goto": this.goto(tokens); break;
+                case "jump": this.jump(tokens); break;
+                case "left": this.left(tokens); break;
+                case "right": this.right(tokens); break;
                 case "rotate": this.rotate(tokens); break;
                 case "marker": this.marker(tokens); break;
                 case "move": this.move(tokens); break;
@@ -150,6 +154,32 @@ class Renderer {
     private jump(location: string[]) {
         console.log("jump", location);
         this.trs(location);
+    }
+
+    private forward(location: string[]) {
+        console.log("forward", location);
+        this.trs(location);
+    }
+
+    private back(location: string[]) {
+        console.log("back", location);
+        this.rotate(["180"]);
+        this.trs(location);
+        this.rotate(["-180"]);
+    }
+
+    private left(location: string[]) {
+        console.log("left", location);
+        this.rotate(["90"]);
+        this.trs(location);
+        this.rotate(["-90"]);
+    }
+
+    private right(location: string[]) {
+        console.log("right", location);
+        this.rotate(["-90"]);
+        this.trs(location);
+        this.rotate(["90"]);
     }
 
     private marker(location: string[]) {

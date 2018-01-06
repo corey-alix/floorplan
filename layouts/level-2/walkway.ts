@@ -11,7 +11,7 @@ export = {
         "jump 20",
         "push",
         arc({
-            segments: 6,
+            segments: 5,
             degrees: -80,
             length: 21,
         }),
@@ -20,7 +20,7 @@ export = {
         "jump 10",
         "rotate -90",
         arc({
-            segments: 6,
+            segments: 5,
             degrees: -80,
             length: 37,
         }),

@@ -11,21 +11,13 @@ export = {
     title: "level-2",
     units: "feet",
     righthand: "true",
-    places: [{
-        name: "telephone-pole",
-        location: [60, -60]
-    }],
-    directions: [{
-        name: "street",
-        direction: 180
-    }],
     route: [
         "goto telephone-pole",
         "face street",
         "rotate -90",
         "jump 9",
         "rotate -90",
-        "decend 3",
+        "descend 3",
         "jump 36",
         "marker garage-corner-1",
         "jump 25",
