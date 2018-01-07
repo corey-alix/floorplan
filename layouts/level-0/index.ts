@@ -1,6 +1,6 @@
 import basement = require("./basement");
 export = {
-    title: "level-1",
+    title: "basement",
     places: [{
         name: "telephone-pole",
         location: [60, -60]

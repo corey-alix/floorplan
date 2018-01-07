@@ -1,5 +1,18 @@
 define("render", ["require", "exports", "openlayers"], function (require, exports, ol) {
     "use strict";
+    function round(v) {
+        return Math.round(v * 100) / 100;
+    }
+    function englishUnits(v) {
+        let result = "";
+        let feet = Math.floor(v);
+        let inches = Math.floor(12 * (v - feet));
+        if (feet)
+            result += `${feet}'`;
+        if (inches)
+            result += `${inches}"`;
+        return result;
+    }
     class Renderer {
         constructor() {
             this.state = {
@@ -193,7 +206,7 @@ define("render", ["require", "exports", "openlayers"], function (require, export
             console.log("move", location);
             let geom = this.trs(location);
             this.features.push(new ol.Feature({
-                name: location.join(" "),
+                name: englishUnits(geom.getLength()),
                 orientation: (360 + this.state.direction + 90) % 180,
                 geometry: geom
             }));
@@ -781,6 +794,26 @@ define("bower_components/ol3-layerswitcher/index", ["require", "exports", "bower
 define("tools/index", ["require", "exports"], function (require, exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
+    const default_options = {
+        arc: {
+            title: "",
+            segments: 6,
+            degrees: -90,
+            length: 20,
+        },
+        room: {
+            title: "",
+            width: 12,
+            depth: 8,
+        },
+        staircase: {
+            title: "",
+            count: 6,
+            descend: 0.67,
+            depth: 0.67,
+            width: 3.75,
+        }
+    };
     function flatten(arr) {
         let result = [];
         arr.forEach(item => {
@@ -794,31 +827,37 @@ define("tools/index", ["require", "exports"], function (require, exports) {
         return result;
     }
     exports.flatten = flatten;
-    function staircase(options = {
-            count: 6,
-            descend: 0.67,
-            depth: 0.67,
-            width: 3.75,
-        }) {
+    function defaults(target, defaults) {
+        Object.keys(defaults).forEach(k => {
+            if (undefined === target[k])
+                target[k] = defaults[k];
+        });
+        return target;
+    }
+    exports.defaults = defaults;
+    function staircase(options = default_options.staircase) {
+        options = defaults(options, default_options.staircase);
         let result = [];
-        for (let i = 0; i < options.count; i++) {
-            let even = (0 == i % 2);
-            result.push(`descend ${options.descend}`);
-            result.push(`move ${options.depth}`);
-            result.push(even ? "rotate -90" : "rotate 90");
-            result.push(`move ${options.width}`);
-            result.push(even ? "rotate 90" : "rotate -90");
+        if (options.count) {
+            options.title && result.push(`marker ${options.title}`);
+            for (let i = 0; i < options.count; i++) {
+                let even = (0 === i % 2);
+                result.push(`descend ${options.descend}`);
+                result.push(`move ${options.depth}`);
+                result.push(even ? "rotate 90" : "rotate -90");
+                result.push(`move ${options.width}`);
+                result.push(even ? "rotate -90" : "rotate 90");
+            }
+            if (1 === options.count % 2)
+                result.push(`right ${options.width}`);
         }
         return result;
     }
     exports.staircase = staircase;
-    function room(options = {
-            width: 12,
-            depth: 8,
-            title: "",
-        }) {
+    function room(options = default_options.room) {
+        options = defaults(options, default_options.room);
         let result = [];
-        result.push(`marker ${options.title}`);
+        options.title && result.push(`marker ${options.title}`);
         result.push(`move ${options.width}`);
         result.push("rotate 90");
         result.push(`move ${options.depth}`);
@@ -830,14 +869,12 @@ define("tools/index", ["require", "exports"], function (require, exports) {
         return result;
     }
     exports.room = room;
-    function arc(options = {
-            segments: 6,
-            degrees: -90,
-            length: 20,
-        }) {
+    function arc(options = default_options.arc) {
+        options = defaults(options, default_options.arc);
         let result = [];
         let delta_angle = Math.round(10 * options.degrees / (options.segments - 1)) / 10;
         let depth = Math.round(10 * options.length / options.segments) / 10;
+        options.title && result.push(`marker ${options.title}`);
         for (let step = 0; step < options.segments; step++) {
             step > 0 && result.push(`marker ${Math.abs(delta_angle)}°`);
             result.push(`move ${depth}`);
@@ -886,7 +923,7 @@ define("layouts/level-0/basement", ["require", "exports", "tools/index"], functi
 define("layouts/level-0/index", ["require", "exports", "layouts/level-0/basement"], function (require, exports, basement) {
     "use strict";
     return {
-        title: "level-1",
+        title: "basement",
         places: [{
                 name: "telephone-pole",
                 location: [60, -60]
@@ -958,6 +995,10 @@ define("layouts/level-1/bedroom3", ["require", "exports", "tools/index"], functi
             "right 25.23",
             "forward 20.5",
             index_5.room({ width: 12, depth: 11, title: "lydia-room" }),
+            "push",
+            "forward 12",
+            "marker house-corner-4",
+            "pop",
             "back 2.33",
             index_5.room({ width: 1.83, depth: 7, title: "lydia-closet" }),
         ])
@@ -1063,20 +1104,34 @@ define("layouts/level-2/deck", ["require", "exports", "tools/index"], function (
             "rotate 90",
             "jump 4",
             "rotate 90",
-            index_8.room({ width: 17.5, depth: 8 }),
+            index_8.room({ width: 17.5, depth: 8, title: "deck-1" }),
             "goto house-corner-2",
             "face street",
             "rotate 180",
-            index_8.room({ width: 8, depth: 37.83 }),
+            index_8.room({ width: 8, depth: 37.83, title: "deck-2" }),
             "rotate 90",
             "jump 37.83",
-            index_8.staircase(),
+            "right 4",
+            index_8.staircase({
+                title: "deck-flight-1",
+                count: 6,
+                descend: 0.67,
+                depth: 0.67,
+                width: 3.75
+            }),
+            "left 3.75",
             "descend 0.67",
             "rotate -90",
-            index_8.room({ width: 8, depth: 6 }),
-            "jump 8",
+            index_8.room({ width: 8, depth: 6, title: "platform-1" }),
+            "jump 4",
             "rotate -90",
-            index_8.staircase(),
+            index_8.staircase({
+                title: "deck-flight-2",
+                count: 6,
+                descend: 0.67,
+                depth: 0.67,
+                width: 3.75
+            }),
             "descend 0.67",
             "rotate 90",
             "jump 4",
@@ -1256,7 +1311,127 @@ define("layouts/level-2/index", ["require", "exports", "layouts/level-2/garage",
         ]
     };
 });
-define("index", ["require", "exports", "openlayers", "render", "bower_components/ol3-layerswitcher/index", "layouts/level-0/index", "layouts/level-1/index", "layouts/level-2/index"], function (require, exports, ol, renderer, ol3_layerswitcher_1, level_0, level_1, level_2) {
+define("layouts/level-3/bedroom1", ["require", "exports", "tools/index"], function (require, exports, index_14) {
+    "use strict";
+    return {
+        title: "bedroom 1",
+        units: "feet",
+        righthand: "true",
+        route: index_14.flatten([
+            "goto house-corner-4",
+            "face street",
+            "back 12.33",
+            "left 11.83",
+            index_14.room({ width: 12.33, depth: 11.33, title: "daniel-room" }),
+            "forward 6.33",
+            "right 2.33",
+            index_14.room({ width: 6, depth: 1.83, title: "daniel-closet" }),
+        ])
+    };
+});
+define("layouts/level-3/bedroom2", ["require", "exports", "tools/index"], function (require, exports, index_15) {
+    "use strict";
+    return {
+        title: "bedroom 2",
+        units: "feet",
+        righthand: "true",
+        route: index_15.flatten([
+            "goto house-corner-4",
+            "face street",
+            "back 12.33",
+            index_15.room({ width: 12.33, depth: 11.33, title: "benjamin-room" }),
+            "back 2.25",
+            index_15.room({ width: 1.83, depth: 7.83, title: "benjamin-closet-1" }),
+            "forward 2.25",
+            "left 11.83",
+            "right 1.83",
+            index_15.room({ width: 6, depth: 1.83, title: "benjamin-closet-2" }),
+        ])
+    };
+});
+define("layouts/level-3/bedroom3", ["require", "exports", "tools/index"], function (require, exports, index_16) {
+    "use strict";
+    return {
+        title: "master bedroom",
+        units: "feet",
+        righthand: "true",
+        route: index_16.flatten([
+            "goto julia-room",
+            "face street",
+            index_16.room({ width: 8, depth: 7, title: "master bathroom" }),
+            "left 7.5",
+            index_16.room({ width: 13, depth: 18, title: "master bedroom" }),
+            "forward 13",
+            "left 4",
+            index_16.room({ width: 3.5, depth: 6, title: "master-closet" }),
+        ])
+    };
+});
+define("layouts/level-3/bathroom1", ["require", "exports", "tools/index"], function (require, exports, index_17) {
+    "use strict";
+    return {
+        title: "front-porch",
+        units: "feet",
+        righthand: "true",
+        route: index_17.flatten([
+            "goto julia-room",
+            "face street",
+            "forward 8.5",
+            index_17.room({ width: 10, depth: 7, title: "green-bathroom" }),
+        ])
+    };
+});
+define("layouts/level-3/attic-portal", ["require", "exports", "tools/index"], function (require, exports, index_18) {
+    "use strict";
+    return {
+        title: "kitchen",
+        units: "feet",
+        righthand: "true",
+        route: index_18.flatten([])
+    };
+});
+define("layouts/level-3/index", ["require", "exports", "layouts/level-3/bedroom1", "layouts/level-3/bedroom2", "layouts/level-3/bedroom3", "layouts/level-3/bathroom1", "layouts/level-3/attic-portal"], function (require, exports, bedroom1, bedroom2, bedroom3, bathroom1, attic) {
+    "use strict";
+    return {
+        title: "level-3",
+        units: "feet",
+        righthand: "true",
+        routes: [
+            bedroom1,
+            bedroom2,
+            bedroom3,
+            bathroom1,
+            attic,
+        ]
+    };
+});
+define("layouts/stairways/index", ["require", "exports", "tools/index"], function (require, exports, index_19) {
+    "use strict";
+    return {
+        title: "stairways",
+        units: "feet",
+        righthand: "true",
+        route: index_19.flatten([
+            "goto basement-corner-1",
+            "face street",
+            "forward 8.5",
+            "rotate -90",
+            index_19.staircase({ count: 7, descend: -7 / 12, depth: 11.375 / 12, width: 41 / 12 }),
+            "ascend 0.53",
+            index_19.room({ width: 3.5, depth: 8 }),
+            "left 8",
+            "rotate 180",
+            index_19.staircase({ count: 6, descend: -0.53, depth: 0.96, width: 3.33 }),
+            "ascend 0.53",
+            "right 4",
+            index_19.room({ width: 4.5, depth: 7 }),
+            "rotate 180",
+            "right 3.5",
+            index_19.staircase({ count: 6, descend: -0.53, depth: 0.96, width: 3.33 }),
+        ])
+    };
+});
+define("index", ["require", "exports", "openlayers", "render", "bower_components/ol3-layerswitcher/index", "layouts/level-0/index", "layouts/level-1/index", "layouts/level-2/index", "layouts/level-3/index", "layouts/stairways/index"], function (require, exports, ol, renderer, ol3_layerswitcher_1, level_0, level_1, level_2, level_3, stairways) {
     "use strict";
     const marker_color = ol.color.asString([20, 240, 20, 1]);
     const line_color = ol.color.asString([160, 160, 160, 1]);
@@ -1265,15 +1440,15 @@ define("index", ["require", "exports", "openlayers", "render", "bower_components
     class App {
         forceLayer(map, level) {
             if (!this.layers)
-                this.layers = [];
+                this.layers = {};
             if (this.layers[level])
                 return this.layers[level];
             let source = new ol.source.Vector();
             let layer = new ol.layer.Vector({
-                title: `level ${level}`,
+                title: level,
                 source: source,
                 style: (feature, res) => {
-                    let rotation = Math.PI * (feature.get("orientation") || 0) / 180;
+                    let rotation = -(Math.PI / 180) * (feature.get("orientation") || 0);
                     switch (feature.getGeometry().getType()) {
                         case "Point":
                             return new ol.style.Style({
@@ -1333,9 +1508,9 @@ define("index", ["require", "exports", "openlayers", "render", "bower_components
                 }),
                 controls: ol.control.defaults({ attribution: false })
             });
-            [level_0, level_1, level_2].forEach((level, i) => {
+            [level_0, level_1, level_2, level_3, stairways].forEach((level, i) => {
                 let features = renderer.render(level);
-                this.forceLayer(map, i).getSource().addFeatures(features);
+                this.forceLayer(map, level.title).getSource().addFeatures(features);
             });
             let layerSwitcher = new ol3_layerswitcher_1.LayerSwitcher({
                 tipLabel: 'Layers',

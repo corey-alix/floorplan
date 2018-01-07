@@ -5,6 +5,8 @@ import { LayerSwitcher } from "ol3-layerswitcher";
 import level_0 = require("./layouts/level-0/index");
 import level_1 = require("./layouts/level-1/index");
 import level_2 = require("./layouts/level-2/index");
+import level_3 = require("./layouts/level-3/index");
+import stairways = require("./layouts/stairways/index");
 
 const marker_color = ol.color.asString([20, 240, 20, 1]);
 const line_color = ol.color.asString([160, 160, 160, 1]);
@@ -13,20 +15,20 @@ const wall_width = 3;
 
 class App {
 
-    private layers: ol.layer.Vector[];
+    private layers: { [id: string]: ol.layer.Vector; };
 
-    private forceLayer(map: ol.Map, level: number) {
+    private forceLayer(map: ol.Map, level: string) {
 
-        if (!this.layers) this.layers = [];
+        if (!this.layers) this.layers = {};
         if (this.layers[level]) return this.layers[level];
 
         let source = new ol.source.Vector();
         let layer = new ol.layer.Vector({
-            title: `level ${level}`,
+            title: level,
             source: source,
             style: (feature: ol.Feature, res: number) => {
 
-                let rotation = Math.PI * (feature.get("orientation") || 0) / 180;
+                let rotation = -(Math.PI / 180) * (feature.get("orientation") || 0);
 
                 switch (feature.getGeometry().getType()) {
                     case "Point":
@@ -91,9 +93,9 @@ class App {
             controls: ol.control.defaults({ attribution: false })
         });
 
-        [level_0, level_1, level_2].forEach((level, i) => {
+        [level_0, level_1, level_2, level_3, stairways].forEach((level, i) => {
             let features = renderer.render(level);
-            this.forceLayer(map, i).getSource().addFeatures(features);
+            this.forceLayer(map, level.title).getSource().addFeatures(features);
         });
 
         let layerSwitcher = new LayerSwitcher({

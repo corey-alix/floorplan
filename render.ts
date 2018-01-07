@@ -9,8 +9,20 @@ interface Layout {
     directions?: Array<{ name: string, direction: number }>;
 }
 
-class Renderer {
+function round(v: number) {
+    return Math.round(v * 100) / 100;
+}
 
+function englishUnits(v: number) {
+    let result = "";
+    let feet = Math.floor(v);
+    let inches = Math.floor(12 * (v - feet));
+    if (feet) result += `${feet}'`;
+    if (inches) result += `${inches}"`;
+    return result;
+}
+
+class Renderer {
 
     private features: ol.Feature[];
 
@@ -198,7 +210,7 @@ class Renderer {
         console.log("move", location);
         let geom = this.trs(location);
         this.features.push(new ol.Feature({
-            name: location.join(" "),
+            name: englishUnits(geom.getLength()),
             orientation: (360 + this.state.direction + 90) % 180,
             geometry: geom
         }));
@@ -207,7 +219,9 @@ class Renderer {
     private trs(location: string[]) {
         let geom = new ol.geom.LineString([]);
         let [x, y] = this.state.position.getCoordinates();
+
         geom.appendCoordinate([x, y]);
+
         let scalar = parseFloat(location[0]);
         if (this.state.rightHandRule) {
             [x, y] = [x - scalar * Math.sin(Math.PI * this.state.direction / 180), y + scalar * Math.cos(Math.PI * this.state.direction / 180)];
@@ -216,6 +230,7 @@ class Renderer {
             [x, y] = [x + scalar * Math.sin(Math.PI * this.state.direction / 180), y + scalar * Math.cos(Math.PI * this.state.direction / 180)];
         }
         geom.appendCoordinate([x, y]);
+        
         this.state.position = new ol.geom.Point([x, y]);
         return geom;
     }
