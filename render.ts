@@ -1,12 +1,21 @@
 import ol = require("openlayers");
 
 interface Layout {
+    units?: string;
     start?: string;
     route?: string[];
     righthand?: string;
     routes?: Array<Layout>;
     places?: Array<{ name: string, location: [number, number] }>;
     directions?: Array<{ name: string, direction: number }>;
+}
+
+const MeterConvert = {
+    "m": 1,
+    "km": 1 / 1000,
+    "ft": 3.28084,
+    "in": 39.37008,
+    "mi": 0.000621371
 }
 
 function round(v: number) {
@@ -22,11 +31,16 @@ function englishUnits(v: number) {
     return result;
 }
 
+function getLength(geom: ol.geom.MultiLineString) {
+    return geom.getLineStrings().reduce((a, b) => a + b.getLength(), 0); // * MeterConvert["ft"];
+}
+
 class Renderer {
 
     private features: ol.Feature[];
 
     private state = {
+        units: <"m" | "km" | "ft" | "mi" | "in">"ft",
         position: new ol.geom.Point([0, 0]),
         direction: 0,
         elevation: 0,
@@ -98,6 +112,18 @@ class Renderer {
         return this.features;
     }
 
+    private transform(geom: ol.geom.Point | ol.geom.MultiLineString) {
+        if (geom instanceof ol.geom.Point) {
+            let c = geom.getFirstCoordinate();
+            return new ol.geom.Point([c[0] / MeterConvert["ft"], c[1] / MeterConvert["ft"]]);
+        }
+        if (geom instanceof ol.geom.MultiLineString) {
+            let c = geom.getCoordinates().map(v => v.map(v => [v[0] / MeterConvert["ft"], v[1] / MeterConvert["ft"]]));
+            return new ol.geom.MultiLineString(<[number,number][][]>c);
+        }
+        throw "unknown geometry type";
+    }
+
     private push(location: string[]) {
         console.log("push", location);
         this.state.stack.push({
@@ -129,10 +155,10 @@ class Renderer {
         return result && result.direction;
     }
 
-    private addPlace(name: string, location: [number, number]) {
+    private addPlace(name: string, location: number[]) {
         this.state.locations.push({
             name: name,
-            point: new ol.geom.Point(location)
+            point: new ol.geom.Point(<[number, number]>location)
         });
     }
 
@@ -196,13 +222,13 @@ class Renderer {
 
     private marker(location: string[]) {
         console.log("marker", location);
-        let point = new ol.Feature({
-            name: location.join(" "),
-            geometry: this.state.position
-        });
         if (!this.state.locations.find(l => l.name === location[0])) {
             this.addPlace(location.join(" "), this.state.position.getCoordinates());
         }
+        let point = new ol.Feature({
+            name: location.join(" "),
+            geometry: this.transform(this.state.position)
+        });
         this.features.push(point);
     }
 
@@ -210,17 +236,17 @@ class Renderer {
         console.log("move", location);
         let geom = this.trs(location);
         this.features.push(new ol.Feature({
-            name: englishUnits(geom.getLength()),
+            name: englishUnits(getLength(geom)),
             orientation: (360 + this.state.direction + 90) % 180,
-            geometry: geom
+            geometry: this.transform(geom)
         }));
     }
 
     private trs(location: string[]) {
-        let geom = new ol.geom.LineString([]);
+        let coords = <ol.Coordinate[]>[];
         let [x, y] = this.state.position.getCoordinates();
 
-        geom.appendCoordinate([x, y]);
+        coords.push([x, y]);
 
         let scalar = parseFloat(location[0]);
         if (this.state.rightHandRule) {
@@ -229,9 +255,10 @@ class Renderer {
         else {
             [x, y] = [x + scalar * Math.sin(Math.PI * this.state.direction / 180), y + scalar * Math.cos(Math.PI * this.state.direction / 180)];
         }
-        geom.appendCoordinate([x, y]);
-        
+        coords.push([x, y]);
+
         this.state.position = new ol.geom.Point([x, y]);
+        let geom = new ol.geom.MultiLineString([coords]);
         return geom;
     }
 

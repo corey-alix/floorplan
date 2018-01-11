@@ -2,6 +2,8 @@
   "name": "3d-house",
   "dependencies": {},
   "globalDependencies": {
-    "ol3-layerswitcher": "github:ca0v/ol3-layerswitcher/built/index.d.ts#v4.0.2"
+    "ol3-draw": "github:ca0v/ol3-draw/built/index.d.ts#v4.0.1",
+    "ol3-layerswitcher": "github:ca0v/ol3-layerswitcher/built/index.d.ts#v4.0.2",
+    "ol3-symbolizer": "github:ca0v/ol3-symbolizer/built/index.d.ts#v4.0.2"
   }
 }

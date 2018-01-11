@@ -1,6 +1,7 @@
 import ol = require("openlayers");
 import renderer = require("./render");
 import { LayerSwitcher } from "ol3-layerswitcher";
+import { add as addToolbar } from "./tools/toolbar";
 
 import level_0 = require("./layouts/level-0/index");
 import level_1 = require("./layouts/level-1/index");
@@ -52,7 +53,8 @@ class App {
                                 }),
                             })
                         });
-                    default:
+                    case "MultiLineString":
+                    case "LineString":
                         return new ol.style.Style({
                             stroke: new ol.style.Stroke({
                                 color: line_color,
@@ -69,6 +71,13 @@ class App {
                                 fill: new ol.style.Fill({
                                     color: text_color,
                                 }),
+                            })
+                        });
+                    default:
+                        return new ol.style.Style({
+                            stroke: new ol.style.Stroke({
+                                color: 'green',
+                                width: 1
                             })
                         });
                 }
@@ -116,6 +125,8 @@ class App {
         });
 
         map.addControl(layerSwitcher);
+
+        addToolbar(map);
     };
 
 }

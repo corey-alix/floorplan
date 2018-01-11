@@ -1,5 +1,12 @@
 define("render", ["require", "exports", "openlayers"], function (require, exports, ol) {
     "use strict";
+    const MeterConvert = {
+        "m": 1,
+        "km": 1 / 1000,
+        "ft": 3.28084,
+        "in": 39.37008,
+        "mi": 0.000621371
+    };
     function round(v) {
         return Math.round(v * 100) / 100;
     }
@@ -13,9 +20,13 @@ define("render", ["require", "exports", "openlayers"], function (require, export
             result += `${inches}"`;
         return result;
     }
+    function getLength(geom) {
+        return geom.getLineStrings().reduce((a, b) => a + b.getLength(), 0); // * MeterConvert["ft"];
+    }
     class Renderer {
         constructor() {
             this.state = {
+                units: "ft",
                 position: new ol.geom.Point([0, 0]),
                 direction: 0,
                 elevation: 0,
@@ -108,6 +119,17 @@ define("render", ["require", "exports", "openlayers"], function (require, export
             source.routes && source.routes.forEach(source => this.render(source, this.features));
             return this.features;
         }
+        transform(geom) {
+            if (geom instanceof ol.geom.Point) {
+                let c = geom.getFirstCoordinate();
+                return new ol.geom.Point([c[0] / MeterConvert["ft"], c[1] / MeterConvert["ft"]]);
+            }
+            if (geom instanceof ol.geom.MultiLineString) {
+                let c = geom.getCoordinates().map(v => v.map(v => [v[0] / MeterConvert["ft"], v[1] / MeterConvert["ft"]]));
+                return new ol.geom.MultiLineString(c);
+            }
+            throw "unknown geometry type";
+        }
         push(location) {
             console.log("push", location);
             this.state.stack.push({
@@ -193,28 +215,28 @@ define("render", ["require", "exports", "openlayers"], function (require, export
         }
         marker(location) {
             console.log("marker", location);
-            let point = new ol.Feature({
-                name: location.join(" "),
-                geometry: this.state.position
-            });
             if (!this.state.locations.find(l => l.name === location[0])) {
                 this.addPlace(location.join(" "), this.state.position.getCoordinates());
             }
+            let point = new ol.Feature({
+                name: location.join(" "),
+                geometry: this.transform(this.state.position)
+            });
             this.features.push(point);
         }
         move(location) {
             console.log("move", location);
             let geom = this.trs(location);
             this.features.push(new ol.Feature({
-                name: englishUnits(geom.getLength()),
+                name: englishUnits(getLength(geom)),
                 orientation: (360 + this.state.direction + 90) % 180,
-                geometry: geom
+                geometry: this.transform(geom)
             }));
         }
         trs(location) {
-            let geom = new ol.geom.LineString([]);
+            let coords = [];
             let [x, y] = this.state.position.getCoordinates();
-            geom.appendCoordinate([x, y]);
+            coords.push([x, y]);
             let scalar = parseFloat(location[0]);
             if (this.state.rightHandRule) {
                 [x, y] = [x - scalar * Math.sin(Math.PI * this.state.direction / 180), y + scalar * Math.cos(Math.PI * this.state.direction / 180)];
@@ -222,8 +244,9 @@ define("render", ["require", "exports", "openlayers"], function (require, export
             else {
                 [x, y] = [x + scalar * Math.sin(Math.PI * this.state.direction / 180), y + scalar * Math.cos(Math.PI * this.state.direction / 180)];
             }
-            geom.appendCoordinate([x, y]);
+            coords.push([x, y]);
             this.state.position = new ol.geom.Point([x, y]);
+            let geom = new ol.geom.MultiLineString([coords]);
             return geom;
         }
         rotate(location) {
@@ -790,6 +813,993 @@ define("bower_components/ol3-layerswitcher/ol3-layerswitcher/ol3-layerswitcher",
 define("bower_components/ol3-layerswitcher/index", ["require", "exports", "bower_components/ol3-layerswitcher/ol3-layerswitcher/ol3-layerswitcher"], function (require, exports, LayerSwitcher) {
     "use strict";
     return LayerSwitcher;
+});
+define("bower_components/ol3-symbolizer/ol3-symbolizer/format/base", ["require", "exports"], function (require, exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+});
+define("bower_components/ol3-symbolizer/ol3-symbolizer/format/ol3-symbolizer", ["require", "exports", "openlayers"], function (require, exports, ol) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    function doif(v, cb) {
+        if (v !== undefined && v !== null)
+            cb(v);
+    }
+    function mixin(a, b) {
+        Object.keys(b).forEach(k => a[k] = b[k]);
+        return a;
+    }
+    class StyleConverter {
+        fromJson(json) {
+            return this.deserializeStyle(json);
+        }
+        toJson(style) {
+            return this.serializeStyle(style);
+        }
+        /**
+         * uses the interior point of a polygon when rendering a 'point' style
+         */
+        setGeometry(feature) {
+            let geom = feature.getGeometry();
+            if (geom instanceof ol.geom.Polygon) {
+                geom = geom.getInteriorPoint();
+            }
+            return geom;
+        }
+        assign(obj, prop, value) {
+            //let getter = prop[0].toUpperCase() + prop.substring(1);
+            if (value === null)
+                return;
+            if (value === undefined)
+                return;
+            if (typeof value === "object") {
+                if (Object.keys(value).length === 0)
+                    return;
+            }
+            if (prop === "image") {
+                if (value.hasOwnProperty("radius")) {
+                    prop = "circle";
+                }
+                if (value.hasOwnProperty("points")) {
+                    prop = "star";
+                }
+            }
+            obj[prop] = value;
+        }
+        serializeStyle(style) {
+            let s = {};
+            if (!style)
+                return null;
+            if (typeof style === "string")
+                return style;
+            if (typeof style === "number")
+                return style;
+            if (style.getColor)
+                mixin(s, this.serializeColor(style.getColor()));
+            if (style.getImage)
+                this.assign(s, "image", this.serializeStyle(style.getImage()));
+            if (style.getFill)
+                this.assign(s, "fill", this.serializeFill(style.getFill()));
+            if (style.getOpacity)
+                this.assign(s, "opacity", style.getOpacity());
+            if (style.getStroke)
+                this.assign(s, "stroke", this.serializeStyle(style.getStroke()));
+            if (style.getText)
+                this.assign(s, "text", this.serializeStyle(style.getText()));
+            if (style.getWidth)
+                this.assign(s, "width", style.getWidth());
+            if (style.getOffsetX)
+                this.assign(s, "offset-x", style.getOffsetX());
+            if (style.getOffsetY)
+                this.assign(s, "offset-y", style.getOffsetY());
+            if (style.getWidth)
+                this.assign(s, "width", style.getWidth());
+            if (style.getFont)
+                this.assign(s, "font", style.getFont());
+            if (style.getRadius)
+                this.assign(s, "radius", style.getRadius());
+            if (style.getRadius2)
+                this.assign(s, "radius2", style.getRadius2());
+            if (style.getPoints)
+                this.assign(s, "points", style.getPoints());
+            if (style.getAngle)
+                this.assign(s, "angle", style.getAngle());
+            if (style.getRotation)
+                this.assign(s, "rotation", style.getRotation());
+            if (style.getOrigin)
+                this.assign(s, "origin", style.getOrigin());
+            if (style.getScale)
+                this.assign(s, "scale", style.getScale());
+            if (style.getSize)
+                this.assign(s, "size", style.getSize());
+            if (style.getAnchor) {
+                this.assign(s, "anchor", style.getAnchor());
+                "anchorXUnits,anchorYUnits,anchorOrigin".split(",").forEach(k => {
+                    this.assign(s, k, style[`${k}_`]);
+                });
+            }
+            // "svg"
+            if (style.path) {
+                if (style.path)
+                    this.assign(s, "path", style.path);
+                if (style.getImageSize)
+                    this.assign(s, "imgSize", style.getImageSize());
+                if (style.stroke)
+                    this.assign(s, "stroke", style.stroke);
+                if (style.fill)
+                    this.assign(s, "fill", style.fill);
+                if (style.scale)
+                    this.assign(s, "scale", style.scale); // getScale and getImgSize are modified in deserializer               
+                if (style.imgSize)
+                    this.assign(s, "imgSize", style.imgSize);
+            }
+            // "icon"
+            if (style.getSrc)
+                this.assign(s, "src", style.getSrc());
+            if (s.points && s.radius !== s.radius2)
+                s.points /= 2; // ol3 defect doubles point count when r1 <> r2  
+            return s;
+        }
+        serializeColor(color) {
+            if (color instanceof Array) {
+                return {
+                    color: ol.color.asString(color)
+                };
+            }
+            else if (color instanceof CanvasGradient) {
+                return {
+                    gradient: color
+                };
+            }
+            else if (color instanceof CanvasPattern) {
+                return {
+                    pattern: color
+                };
+            }
+            else if (typeof color === "string") {
+                return {
+                    color: color
+                };
+            }
+            throw "unknown color type";
+        }
+        serializeFill(fill) {
+            return this.serializeStyle(fill);
+        }
+        deserializeStyle(json) {
+            let image;
+            let text;
+            let fill;
+            let stroke;
+            if (json.circle)
+                image = this.deserializeCircle(json.circle);
+            else if (json.star)
+                image = this.deserializeStar(json.star);
+            else if (json.icon)
+                image = this.deserializeIcon(json.icon);
+            else if (json.svg)
+                image = this.deserializeSvg(json.svg);
+            else if (json.image && (json.image.img || json.image.path))
+                image = this.deserializeSvg(json.image);
+            else if (json.image && json.image.src)
+                image = this.deserializeIcon(json.image);
+            else if (json.image)
+                throw "unknown image type";
+            if (json.text)
+                text = this.deserializeText(json.text);
+            if (json.fill)
+                fill = this.deserializeFill(json.fill);
+            if (json.stroke)
+                stroke = this.deserializeStroke(json.stroke);
+            let s = new ol.style.Style({
+                image: image,
+                text: text,
+                fill: fill,
+                stroke: stroke
+            });
+            image && s.setGeometry(feature => this.setGeometry(feature));
+            return s;
+        }
+        deserializeText(json) {
+            json.rotation = json.rotation || 0;
+            json.scale = json.scale || 1;
+            let [x, y] = [json["offset-x"] || 0, json["offset-y"] || 0];
+            {
+                let p = new ol.geom.Point([x, y]);
+                p.rotate(json.rotation, [0, 0]);
+                p.scale(json.scale, json.scale);
+                [x, y] = p.getCoordinates();
+            }
+            return new ol.style.Text({
+                fill: json.fill && this.deserializeFill(json.fill),
+                stroke: json.stroke && this.deserializeStroke(json.stroke),
+                text: json.text,
+                font: json.font,
+                offsetX: x,
+                offsetY: y,
+                rotation: json.rotation,
+                scale: json.scale
+            });
+        }
+        deserializeCircle(json) {
+            let image = new ol.style.Circle({
+                radius: json.radius,
+                fill: json.fill && this.deserializeFill(json.fill),
+                stroke: json.stroke && this.deserializeStroke(json.stroke)
+            });
+            image.setOpacity(json.opacity);
+            return image;
+        }
+        deserializeStar(json) {
+            let image = new ol.style.RegularShape({
+                radius: json.radius,
+                radius2: json.radius2,
+                points: json.points,
+                angle: json.angle,
+                fill: json.fill && this.deserializeFill(json.fill),
+                stroke: json.stroke && this.deserializeStroke(json.stroke)
+            });
+            doif(json.rotation, v => image.setRotation(v));
+            doif(json.opacity, v => image.setOpacity(v));
+            return image;
+        }
+        deserializeIcon(json) {
+            if (!json.anchor) {
+                json.anchor = [json["anchor-x"] || 0.5, json["anchor-y"] || 0.5];
+            }
+            let image = new ol.style.Icon({
+                anchor: json.anchor || [0.5, 0.5],
+                anchorOrigin: json.anchorOrigin || "top-left",
+                anchorXUnits: json.anchorXUnits || "fraction",
+                anchorYUnits: json.anchorYUnits || "fraction",
+                //crossOrigin?: string;
+                img: undefined,
+                imgSize: undefined,
+                offset: json.offset,
+                offsetOrigin: json.offsetOrigin,
+                opacity: json.opacity,
+                scale: json.scale,
+                snapToPixel: json.snapToPixel,
+                rotateWithView: json.rotateWithView,
+                rotation: json.rotation,
+                size: json.size,
+                src: json.src,
+                color: json.color
+            });
+            image.load();
+            return image;
+        }
+        deserializeSvg(json) {
+            json.rotation = json.rotation || 0;
+            json.scale = json.scale || 1;
+            if (json.img) {
+                let symbol = document.getElementById(json.img);
+                if (!symbol) {
+                    throw `unable to find svg element: ${json.img}`;
+                }
+                if (symbol) {
+                    // but just grab the path is probably good enough
+                    let path = (symbol.getElementsByTagName("path")[0]);
+                    if (path) {
+                        if (symbol.viewBox) {
+                            if (!json.imgSize) {
+                                json.imgSize = [symbol.viewBox.baseVal.width, symbol.viewBox.baseVal.height];
+                            }
+                        }
+                        json.path = (json.path || "") + path.getAttribute('d');
+                    }
+                }
+            }
+            let canvas = document.createElement("canvas");
+            if (json.path) {
+                {
+                    // rotate a rectangle and get the resulting extent
+                    [canvas.width, canvas.height] = json.imgSize.map(v => v * json.scale);
+                    if (json.stroke && json.stroke.width) {
+                        let dx = 2 * json.stroke.width * json.scale;
+                        canvas.width += dx;
+                        canvas.height += dx;
+                    }
+                }
+                let ctx = canvas.getContext('2d');
+                let path2d = new Path2D(json.path);
+                // rotate  before it is in the canvas (avoids pixelation)
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.scale(json.scale, json.scale);
+                ctx.translate(-json.imgSize[0] / 2, -json.imgSize[1] / 2);
+                if (json.fill) {
+                    ctx.fillStyle = json.fill.color;
+                    ctx.fill(path2d);
+                }
+                if (json.stroke) {
+                    ctx.strokeStyle = json.stroke.color;
+                    ctx.lineWidth = json.stroke.width;
+                    ctx.stroke(path2d);
+                }
+            }
+            let icon = new ol.style.Icon({
+                img: canvas,
+                imgSize: [canvas.width, canvas.height],
+                rotation: json.rotation,
+                scale: 1,
+                anchor: json.anchor || [canvas.width / 2, canvas.height],
+                anchorOrigin: json.anchorOrigin,
+                anchorXUnits: json.anchorXUnits || "pixels",
+                anchorYUnits: json.anchorYUnits || "pixels",
+                //crossOrigin?: string;
+                offset: json.offset,
+                offsetOrigin: json.offsetOrigin,
+                opacity: json.opacity,
+                snapToPixel: json.snapToPixel,
+                rotateWithView: json.rotateWithView,
+                size: [canvas.width, canvas.height],
+                src: undefined
+            });
+            return mixin(icon, {
+                path: json.path,
+                stroke: json.stroke,
+                fill: json.fill,
+                scale: json.scale,
+                imgSize: json.imgSize
+            });
+        }
+        deserializeFill(json) {
+            let fill = new ol.style.Fill({
+                color: json && this.deserializeColor(json)
+            });
+            return fill;
+        }
+        deserializeStroke(json) {
+            let stroke = new ol.style.Stroke();
+            doif(json.color, v => stroke.setColor(v));
+            doif(json.lineCap, v => stroke.setLineCap(v));
+            doif(json.lineDash, v => stroke.setLineDash(v));
+            doif(json.lineJoin, v => stroke.setLineJoin(v));
+            doif(json.miterLimit, v => stroke.setMiterLimit(v));
+            doif(json.width, v => stroke.setWidth(v));
+            return stroke;
+        }
+        deserializeColor(fill) {
+            if (fill.color) {
+                return fill.color;
+            }
+            if (fill.gradient) {
+                let type = fill.gradient.type;
+                let gradient;
+                if (0 === type.indexOf("linear(")) {
+                    gradient = this.deserializeLinearGradient(fill.gradient);
+                }
+                else if (0 === type.indexOf("radial(")) {
+                    gradient = this.deserializeRadialGradient(fill.gradient);
+                }
+                if (fill.gradient.stops) {
+                    // preserve
+                    mixin(gradient, {
+                        stops: fill.gradient.stops
+                    });
+                    let stops = fill.gradient.stops.split(";");
+                    stops = stops.map(v => v.trim());
+                    stops.forEach(colorstop => {
+                        let stop = colorstop.match(/ \d+%/m)[0];
+                        let color = colorstop.substr(0, colorstop.length - stop.length);
+                        gradient.addColorStop(parseInt(stop) / 100, color);
+                    });
+                }
+                return gradient;
+            }
+            if (fill.pattern) {
+                let repitition = fill.pattern.repitition;
+                let canvas = document.createElement('canvas');
+                let spacing = canvas.width = canvas.height = fill.pattern.spacing | 6;
+                let context = canvas.getContext('2d');
+                context.fillStyle = fill.pattern.color;
+                switch (fill.pattern.orientation) {
+                    case "horizontal":
+                        for (var i = 0; i < spacing; i++) {
+                            context.fillRect(i, 0, 1, 1);
+                        }
+                        break;
+                    case "vertical":
+                        for (var i = 0; i < spacing; i++) {
+                            context.fillRect(0, i, 1, 1);
+                        }
+                        break;
+                    case "cross":
+                        for (var i = 0; i < spacing; i++) {
+                            context.fillRect(i, 0, 1, 1);
+                            context.fillRect(0, i, 1, 1);
+                        }
+                        break;
+                    case "forward":
+                        for (var i = 0; i < spacing; i++) {
+                            context.fillRect(i, i, 1, 1);
+                        }
+                        break;
+                    case "backward":
+                        for (var i = 0; i < spacing; i++) {
+                            context.fillRect(spacing - 1 - i, i, 1, 1);
+                        }
+                        break;
+                    case "diagonal":
+                        for (var i = 0; i < spacing; i++) {
+                            context.fillRect(i, i, 1, 1);
+                            context.fillRect(spacing - 1 - i, i, 1, 1);
+                        }
+                        break;
+                }
+                return mixin(context.createPattern(canvas, repitition), fill.pattern);
+            }
+            if (fill.image) {
+                let canvas = document.createElement('canvas');
+                let [w, h] = [canvas.width, canvas.height] = fill.image.imgSize;
+                let context = canvas.getContext('2d');
+                let [dx, dy] = [0, 0];
+                let image = document.createElement("img");
+                image.src = fill.image.imageData;
+                image.onload = () => context.drawImage(image, 0, 0, w, h);
+                return "rgba(255,255,255,0.1)"; // TODO
+            }
+            throw "invalid color configuration";
+        }
+        deserializeLinearGradient(json) {
+            let rx = /\w+\((.*)\)/m;
+            let [x0, y0, x1, y1] = JSON.parse(json.type.replace(rx, "[$1]"));
+            let canvas = document.createElement('canvas');
+            // not correct, assumes points reside on edge
+            canvas.width = Math.max(x0, x1);
+            canvas.height = Math.max(y0, y1);
+            var context = canvas.getContext('2d');
+            let gradient = context.createLinearGradient(x0, y0, x1, y1);
+            mixin(gradient, {
+                type: `linear(${[x0, y0, x1, y1].join(",")})`
+            });
+            return gradient;
+        }
+        deserializeRadialGradient(json) {
+            let rx = /radial\((.*)\)/m;
+            let [x0, y0, r0, x1, y1, r1] = JSON.parse(json.type.replace(rx, "[$1]"));
+            let canvas = document.createElement('canvas');
+            // not correct, assumes radial centered
+            canvas.width = 2 * Math.max(x0, x1);
+            canvas.height = 2 * Math.max(y0, y1);
+            var context = canvas.getContext('2d');
+            let gradient = context.createRadialGradient(x0, y0, r0, x1, y1, r1);
+            mixin(gradient, {
+                type: `radial(${[x0, y0, r0, x1, y1, r1].join(",")})`
+            });
+            return gradient;
+        }
+    }
+    exports.StyleConverter = StyleConverter;
+});
+define("bower_components/ol3-symbolizer/index", ["require", "exports", "bower_components/ol3-symbolizer/ol3-symbolizer/format/ol3-symbolizer"], function (require, exports, Symbolizer) {
+    "use strict";
+    return Symbolizer;
+});
+define("bower_components/ol3-draw/ol3-draw/ol3-button", ["require", "exports", "openlayers", "bower_components/ol3-fun/ol3-fun/common", "bower_components/ol3-symbolizer/index"], function (require, exports, ol, common_2, ol3_symbolizer_1) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    class Button extends ol.control.Control {
+        constructor(options) {
+            super(options);
+            this.options = options;
+            this.handlers = [];
+            this.symbolizer = new ol3_symbolizer_1.StyleConverter();
+            this.cssin();
+            options.element.className = `${options.className} ${options.position}`;
+            let button = common_2.html(`<input type="button" value="${options.label}" />`);
+            this.handlers.push(() => options.element.remove());
+            button.title = options.title;
+            options.element.appendChild(button);
+            this.set("active", false);
+            button.addEventListener("click", () => {
+                this.dispatchEvent("click");
+                this.set("active", !this.get("active"));
+            });
+            this.on("change:active", () => {
+                this.options.element.classList.toggle("active", this.get("active"));
+                options.map.dispatchEvent({
+                    type: options.eventName,
+                    control: this
+                });
+            });
+        }
+        static create(options) {
+            options = common_2.mixin(common_2.mixin({}, Button.DEFAULT_OPTIONS), options);
+            options.element = options.element || document.createElement("DIV");
+            let button = new (options.buttonType)(options);
+            if (options.map) {
+                options.map.addControl(button);
+            }
+            return button;
+        }
+        setPosition(position) {
+            this.options.position.split(' ')
+                .forEach(k => this.options.element.classList.remove(k));
+            position.split(' ')
+                .forEach(k => this.options.element.classList.add(k));
+            this.options.position = position;
+        }
+        destroy() {
+            this.handlers.forEach(h => h());
+            this.setTarget(null);
+        }
+        cssin() {
+            let className = this.options.className;
+            let positions = common_2.pair("top left right bottom".split(" "), common_2.range(24))
+                .map(pos => `.${className}.${pos[0] + (-pos[1] || '')} { ${pos[0]}:${0.5 + pos[1]}em; }`);
+            this.handlers.push(common_2.cssin(className, `
+            .${className} {
+                position: absolute;
+                background-color: rgba(255,255,255,.4);
+            }
+            .${className}.active {
+                background-color: white;
+            }
+            .${className}:hover {
+                background-color: white;
+            }
+            .${className} input[type="button"] {
+                color: rgba(0,60,136,1);
+                background: transparent;
+                border: none;
+                width: 2em;
+                height: 2em;
+            }
+            ${positions.join('\n')}
+        `));
+        }
+        setMap(map) {
+            let options = this.options;
+            super.setMap(map);
+            options.map = map;
+            if (!map) {
+                this.destroy();
+                return;
+            }
+        }
+    }
+    Button.DEFAULT_OPTIONS = {
+        className: "ol-button",
+        position: "top right",
+        label: "Button",
+        title: "Button",
+        eventName: "click:button",
+        buttonType: Button
+    };
+    exports.Button = Button;
+});
+define("bower_components/ol3-draw/ol3-draw/ol3-draw", ["require", "exports", "openlayers", "bower_components/ol3-draw/ol3-draw/ol3-button", "bower_components/ol3-fun/ol3-fun/common"], function (require, exports, ol, ol3_button_1, common_3) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    class Draw extends ol3_button_1.Button {
+        constructor(options) {
+            super(options);
+            this.interactions = {};
+            this.handlers.push(() => Object.keys(this.interactions).forEach(k => {
+                let interaction = this.interactions[k];
+                interaction.setActive(false);
+                options.map.removeInteraction(interaction);
+            }));
+            this.on("change:active", () => {
+                let active = this.get("active");
+                let interaction = this.interactions[options.geometryType];
+                if (active) {
+                    if (!interaction) {
+                        interaction = this.interactions[options.geometryType] = this.createInteraction();
+                    }
+                    interaction.setActive(true);
+                }
+                else {
+                    interaction && interaction.setActive(false);
+                }
+            });
+            let style = this.options.style.map(s => this.symbolizer.fromJson(s));
+            if (!options.layers) {
+                let layer = new ol.layer.Vector({
+                    style: style,
+                    source: new ol.source.Vector()
+                });
+                options.map.addLayer(layer);
+                options.layers = [layer];
+            }
+        }
+        static create(options) {
+            options = common_3.mixin(common_3.mixin({}, Draw.DEFAULT_OPTIONS), options);
+            return ol3_button_1.Button.create(options);
+        }
+        createInteraction() {
+            let options = this.options;
+            let source = options.layers[0].getSource();
+            let style = options.style.map(s => this.symbolizer.fromJson(s));
+            let draw = new ol.interaction.Draw({
+                type: options.geometryType,
+                geometryName: options.geometryName,
+                source: source,
+                style: style
+            });
+            draw.setActive(false);
+            ["drawstart", "drawend"].forEach(eventName => {
+                draw.on(eventName, args => this.dispatchEvent(args));
+            });
+            draw.on("change:active", () => this.options.element.classList.toggle("active", draw.getActive()));
+            options.map.addInteraction(draw);
+            return draw;
+        }
+    }
+    Draw.DEFAULT_OPTIONS = {
+        className: "ol-draw",
+        geometryType: "Point",
+        geometryName: "geom",
+        label: "Draw",
+        title: "Draw",
+        buttonType: Draw,
+        eventName: "draw-feature",
+        style: [
+            {
+                circle: {
+                    radius: 12,
+                    opacity: 1,
+                    fill: {
+                        color: "rgba(0,0,0,0.5)"
+                    },
+                    stroke: {
+                        color: "rgba(255,255,255,1)",
+                        width: 3
+                    }
+                }
+            },
+            {
+                fill: {
+                    color: "rgba(0,0,0,0.5)"
+                },
+                stroke: {
+                    color: "rgba(255,255,255,1)",
+                    width: 5
+                }
+            },
+            {
+                stroke: {
+                    color: "rgba(0,0,0,1)",
+                    width: 1
+                }
+            }
+        ]
+    };
+    exports.Draw = Draw;
+});
+define("bower_components/ol3-draw/index", ["require", "exports", "bower_components/ol3-draw/ol3-draw/ol3-draw"], function (require, exports, Draw) {
+    "use strict";
+    return Draw;
+});
+define("bower_components/ol3-draw/ol3-draw/ol3-edit", ["require", "exports", "openlayers", "bower_components/ol3-fun/ol3-fun/common", "bower_components/ol3-draw/ol3-draw/ol3-button"], function (require, exports, ol, common_4, ol3_button_2) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    class Modify extends ol3_button_2.Button {
+        constructor(options) {
+            super(options);
+            let styles = common_4.defaults(options.style, Modify.DEFAULT_OPTIONS.style);
+            let select = new ol.interaction.Select({
+                style: (feature, res) => {
+                    let featureType = feature.getGeometry().getType();
+                    let style = styles[featureType].map(s => this.symbolizer.fromJson(s));
+                    switch (featureType) {
+                        case "MultiLineString":
+                        case "MultiPolygon":
+                        case "Polygon":
+                        case "MultiPoint":
+                        case "Point":
+                            styles["EditPoints"].map(s => this.symbolizer.fromJson(s)).forEach(otherStyle => {
+                                otherStyle.setGeometry(() => {
+                                    let geom = feature.getGeometry();
+                                    let points;
+                                    if (geom instanceof ol.geom.MultiPolygon) {
+                                        points = geom.getCoordinates()[0][0];
+                                    }
+                                    else if (geom instanceof ol.geom.Polygon) {
+                                        points = geom.getCoordinates()[0];
+                                    }
+                                    else if (geom instanceof ol.geom.MultiLineString) {
+                                        points = geom.getCoordinates()[0];
+                                    }
+                                    else if (geom instanceof ol.geom.MultiPoint) {
+                                        points = geom.getCoordinates();
+                                    }
+                                    else if (geom instanceof ol.geom.Point) {
+                                        points = [geom.getCoordinates()];
+                                    }
+                                    return new ol.geom.MultiPoint(points);
+                                });
+                                style.push(otherStyle);
+                            });
+                    }
+                    return style;
+                }
+            });
+            let modify = new ol.interaction.Modify({
+                features: select.getFeatures(),
+                style: (feature, res) => {
+                    let featureType = feature.getGeometry().getType();
+                    let style = (options.style[featureType] || Modify.DEFAULT_OPTIONS.style[featureType])
+                        .map(s => this.symbolizer.fromJson(s));
+                    return style;
+                }
+            });
+            ["modifystart", "modifyend"].forEach(eventName => {
+                modify.on(eventName, args => this.dispatchEvent(args));
+            });
+            select.on("select", (args) => {
+                modify.setActive(true);
+            });
+            this.once("change:active", () => {
+                [select, modify].forEach(i => {
+                    i.setActive(false);
+                    options.map.addInteraction(i);
+                });
+                this.handlers.push(() => {
+                    [select, modify].forEach(i => {
+                        i.setActive(false);
+                        options.map.removeInteraction(i);
+                    });
+                });
+            });
+            this.on("change:active", () => {
+                let active = this.get("active");
+                select.setActive(active);
+                if (!active)
+                    select.getFeatures().clear();
+            });
+        }
+        static create(options) {
+            options = common_4.defaults({}, options, Modify.DEFAULT_OPTIONS);
+            return ol3_button_2.Button.create(options);
+        }
+    }
+    Modify.DEFAULT_OPTIONS = {
+        className: "ol-edit",
+        label: "Edit",
+        title: "Edit",
+        eventName: "modify-feature",
+        style: {
+            "Point": [{
+                    circle: {
+                        radius: 2,
+                        fill: {
+                            color: "rgba(255, 0, 0, 1)"
+                        },
+                        stroke: {
+                            color: "rgba(255, 0, 0, 1)",
+                            width: 1
+                        },
+                        opacity: 1
+                    }
+                }],
+            "EditPoints": [{
+                    circle: {
+                        radius: 5,
+                        fill: {
+                            color: "rgb(255, 165, 0)"
+                        },
+                        opacity: 0.2
+                    }
+                }],
+            "MultiLineString": [{
+                    stroke: {
+                        color: "rgba(0, 0, 0, 0.5)",
+                        width: 3
+                    }
+                }],
+            "Circle": [{
+                    fill: {
+                        color: "blue"
+                    },
+                    stroke: {
+                        color: "red",
+                        width: 2
+                    }
+                }],
+            "Polygon": [{
+                    fill: {
+                        color: "rgba(0, 0, 0, 0.1)"
+                    },
+                    stroke: {
+                        color: "rgba(0, 0, 0, 1)",
+                        width: 1
+                    }
+                }],
+            "MultiPolygon": [{
+                    fill: {
+                        color: "rgba(0, 0, 0, 0.1)"
+                    },
+                    stroke: {
+                        color: "rgba(0, 0, 0, 1)",
+                        width: 1
+                    }
+                }]
+        },
+        buttonType: Modify
+    };
+    exports.Modify = Modify;
+});
+define("bower_components/ol3-draw/ol3-draw/measure-extension", ["require", "exports", "openlayers", "bower_components/ol3-fun/index"], function (require, exports, ol, ol3_fun_2) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    let wgs84Sphere = new ol.Sphere(6378137);
+    const MeterConvert = {
+        "m": 1,
+        "km": 1 / 1000,
+        "ft": 3.28084,
+        "in": 39.37008,
+        "mi": 0.000621371
+    };
+    function distance(c1, c2) {
+        let [dx, dy] = [c2[0] - c1[0], c2[1] - c1[1]];
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    class Measurement {
+        constructor(options) {
+            this.options = options;
+            ol3_fun_2.cssin("measure", `
+
+.tooltip {
+    position: relative;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 4px;
+    color: white;
+    padding: 4px 8px;
+    opacity: 0.7;
+    white-space: nowrap;
+}
+.tooltip-measure {
+    opacity: 1;
+    font-weight: bold;
+}
+.tooltip-static {
+    background-color: #ffcc33;
+    color: black;
+    border: 1px solid white;
+}
+.tooltip-measure:before,
+.tooltip-static:before {
+    border-top: 6px solid rgba(0, 0, 0, 0.5);
+    border-right: 6px solid transparent;
+    border-left: 6px solid transparent;
+    content: "";
+    position: absolute;
+    bottom: -6px;
+    margin-left: -7px;
+    left: 50%;
+}
+.tooltip-static:before {
+    border-top-color: #ffcc33;
+}
+
+    `);
+            this.createMeasureTooltip();
+        }
+        static create(options) {
+            options = ol3_fun_2.defaults({}, options || {}, Measurement.DEFAULT_OPTIONS);
+            return new Measurement(options);
+        }
+        createMeasureTooltip() {
+            let options = this.options;
+            if (this.measureTooltipElement) {
+                this.measureTooltipElement.parentNode.removeChild(this.measureTooltipElement);
+            }
+            this.measureTooltipElement = document.createElement('div');
+            this.measureTooltipElement.className = 'tooltip tooltip-measure';
+            this.measureTooltip = new ol.Overlay({
+                element: this.measureTooltipElement,
+                offset: [0, -15],
+                positioning: 'bottom-center'
+            });
+            options.map.addOverlay(this.measureTooltip);
+            options.draw.on('drawstart', (evt) => {
+                let listener = evt.feature.getGeometry().on('change', (evt) => {
+                    var geom = evt.target;
+                    let coordinates = this.flatten({ geom: geom });
+                    let output = this.formatLength({ map: options.map, coordinates: coordinates });
+                    this.measureTooltipElement.innerHTML = output;
+                    this.measureTooltip.setPosition(coordinates[coordinates.length - 1]);
+                });
+                options.draw.once('drawend', () => ol.Observable.unByKey(listener));
+            });
+            options.edit.on('modifystart', (evt) => {
+                let feature = evt.features.getArray()[0];
+                let geom = feature.getGeometry();
+                let coordinates = this.flatten({ geom: geom });
+                let originalDistances = this.computeDistances({ map: options.map, coordinates: coordinates });
+                let listener = geom.on('change', evt => {
+                    let coordinates = this.flatten({ geom: geom });
+                    let distances = this.computeDistances({ map: options.map, coordinates: coordinates });
+                    distances.some((d, i) => {
+                        if (d === originalDistances[i])
+                            return false;
+                        this.measureTooltipElement.innerHTML = this.formatLengths([d, distances.reduce((a, b) => a + b, 0)]);
+                        this.measureTooltip.setPosition(coordinates[i]);
+                        return true;
+                    });
+                });
+                options.edit.once('modifyend', () => ol.Observable.unByKey(listener));
+            });
+        }
+        // move to ol3-fun
+        flatten(args) {
+            let coordinates;
+            if (args.geom instanceof ol.geom.LineString) {
+                coordinates = args.geom.getCoordinates();
+            }
+            else if (args.geom instanceof ol.geom.MultiLineString) {
+                coordinates = args.geom.getLineString(0).getCoordinates();
+            }
+            else if (args.geom instanceof ol.geom.Polygon) {
+                coordinates = args.geom.getLinearRing(0).getCoordinates();
+            }
+            else if (args.geom instanceof ol.geom.MultiPolygon) {
+                coordinates = args.geom.getPolygon(0).getLinearRing(0).getCoordinates();
+            }
+            return coordinates;
+        }
+        computeDistances(args) {
+            // move to floorplan, pass in as option
+            let coordinates = args.coordinates;
+            //return coordinates.map((c, i) => distance(i ? coordinates[i - 1] : c, c));
+            let sourceProj = args.map.getView().getProjection();
+            coordinates = coordinates.map(c => ol.proj.transform(c, sourceProj, 'EPSG:4326'));
+            return coordinates.map((c, i) => wgs84Sphere.haversineDistance(i ? coordinates[i - 1] : c, c));
+        }
+        /**
+         * Format length output.
+         * @param {ol.geom.LineString} line The line.
+         * @return {string} The formatted length.
+         */
+        formatLength(args) {
+            let options = this.options;
+            let distances = this.computeDistances(args);
+            let length = distances.reduce((a, b) => a + b, 0);
+            let lengths = [length];
+            if (options.measureCurrentSegment && distances.length > 2) {
+                lengths.push(distances.pop());
+            }
+            return this.formatLengths(lengths);
+        }
+        formatLengths(lengths) {
+            let options = this.options;
+            return lengths.map(l => {
+                let uom = options.uom;
+                let length = l;
+                let result = [""];
+                uom.some(uom => {
+                    let value = MeterConvert[uom] * length;
+                    let wholePart = Math.floor(value);
+                    if (0 !== wholePart) {
+                        result.push(`${wholePart} ${uom}`);
+                    }
+                    length = (value - wholePart) / MeterConvert[uom];
+                    return (length < 0.00001);
+                });
+                return result.join(" ");
+            }).join("<br/>");
+        }
+    }
+    Measurement.DEFAULT_OPTIONS = {
+        uom: ["ft", "in"],
+        measureCurrentSegment: true
+    };
+    exports.Measurement = Measurement;
+});
+define("tools/toolbar", ["require", "exports", "bower_components/ol3-draw/index", "bower_components/ol3-draw/ol3-draw/ol3-edit", "bower_components/ol3-draw/ol3-draw/measure-extension"], function (require, exports, ol3_draw_1, ol3_edit_1, measure_extension_1) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    function add(map) {
+        measure_extension_1.Measurement.create({
+            map: map,
+            draw: ol3_draw_1.Draw.create({ map: map, geometryType: "MultiLineString", position: "bottom right-1", label: "📏", title: "Measure" }),
+            edit: ol3_edit_1.Modify.create({ map: map, position: "bottom right-3", label: "✍", title: "Modify" }),
+            uom: ["mi", "ft", "in"]
+        });
+    }
+    exports.add = add;
 });
 define("tools/index", ["require", "exports"], function (require, exports) {
     "use strict";
@@ -1431,7 +2441,7 @@ define("layouts/stairways/index", ["require", "exports", "tools/index"], functio
         ])
     };
 });
-define("index", ["require", "exports", "openlayers", "render", "bower_components/ol3-layerswitcher/index", "layouts/level-0/index", "layouts/level-1/index", "layouts/level-2/index", "layouts/level-3/index", "layouts/stairways/index"], function (require, exports, ol, renderer, ol3_layerswitcher_1, level_0, level_1, level_2, level_3, stairways) {
+define("index", ["require", "exports", "openlayers", "render", "bower_components/ol3-layerswitcher/index", "tools/toolbar", "layouts/level-0/index", "layouts/level-1/index", "layouts/level-2/index", "layouts/level-3/index", "layouts/stairways/index"], function (require, exports, ol, renderer, ol3_layerswitcher_1, toolbar_1, level_0, level_1, level_2, level_3, stairways) {
     "use strict";
     const marker_color = ol.color.asString([20, 240, 20, 1]);
     const line_color = ol.color.asString([160, 160, 160, 1]);
@@ -1471,7 +2481,8 @@ define("index", ["require", "exports", "openlayers", "render", "bower_components
                                     }),
                                 })
                             });
-                        default:
+                        case "MultiLineString":
+                        case "LineString":
                             return new ol.style.Style({
                                 stroke: new ol.style.Stroke({
                                     color: line_color,
@@ -1488,6 +2499,13 @@ define("index", ["require", "exports", "openlayers", "render", "bower_components
                                     fill: new ol.style.Fill({
                                         color: text_color,
                                     }),
+                                })
+                            });
+                        default:
+                            return new ol.style.Style({
+                                stroke: new ol.style.Stroke({
+                                    color: 'green',
+                                    width: 1
                                 })
                             });
                     }
@@ -1527,6 +2545,7 @@ define("index", ["require", "exports", "openlayers", "render", "bower_components
                 console.log("hide layer:", args.layer.get("title"));
             });
             map.addControl(layerSwitcher);
+            toolbar_1.add(map);
         }
         ;
     }
